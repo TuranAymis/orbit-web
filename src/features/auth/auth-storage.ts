@@ -1,6 +1,6 @@
 import type { AuthSession } from "@/features/auth/types";
 
-const AUTH_STORAGE_KEY = "orbit.auth.session";
+export const AUTH_STORAGE_KEY = "orbit.auth.session";
 
 export function readStoredSession(): AuthSession | null {
   if (typeof window === "undefined") {

@@ -1,5 +1,6 @@
 import {
   createContext,
+  useEffect,
   useCallback,
   useContext,
   useMemo,
@@ -13,6 +14,7 @@ import type { AuthSession, LoginCredentials } from "@/features/auth/types";
 interface AuthContextValue {
   session: AuthSession | null;
   user: AuthSession["user"] | null;
+  isLoading: boolean;
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => void;
@@ -28,13 +30,27 @@ export function AuthProvider({
   children,
   initialSession,
 }: AuthProviderProps) {
-  const [session, setSession] = useState<AuthSession | null>(() => {
+  const [session, setSession] = useState<AuthSession | null>(
+    initialSession ?? null,
+  );
+  const [isLoading, setIsLoading] = useState(initialSession === undefined);
+
+  useEffect(() => {
     if (initialSession !== undefined) {
-      return initialSession;
+      setSession(initialSession);
+      setIsLoading(false);
+      return;
     }
 
-    return readStoredSession();
-  });
+    const timeoutId = window.setTimeout(() => {
+      setSession(readStoredSession());
+      setIsLoading(false);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [initialSession]);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
     const nextSession = await loginWithMockSession(credentials);
@@ -51,17 +67,18 @@ export function AuthProvider({
     () => ({
       session,
       user: session?.user ?? null,
+      isLoading,
       isAuthenticated: Boolean(session?.isAuthenticated),
       login,
       logout,
     }),
-    [login, logout, session],
+    [isLoading, login, logout, session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
+export function useAuthContext() {
   const context = useContext(AuthContext);
 
   if (!context) {
