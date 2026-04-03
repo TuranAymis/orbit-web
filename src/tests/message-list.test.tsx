@@ -41,4 +41,24 @@ describe("MessageList", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/frontend forge was created/i)).toBeInTheDocument();
   });
+
+  it("does not render duplicate messages when overlapping data is returned", () => {
+    render(
+      <MessageList
+        messages={[
+          ...messages,
+          {
+            ...messages[0],
+            id: "msg_duplicate",
+            clientMessageId: "client_duplicate",
+            serverMessageId: "msg_1",
+          },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getAllByText(/morning everyone, let’s align on the release checklist/i),
+    ).toHaveLength(1);
+  });
 });

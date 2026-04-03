@@ -14,6 +14,8 @@ interface PlanCardProps {
   onCtaClick?: () => void;
   isCurrent?: boolean;
   isHighlighted?: boolean;
+  ctaVariant?: "default" | "secondary" | "outline";
+  ctaDisabled?: boolean;
   footer?: ReactNode;
 }
 
@@ -26,6 +28,8 @@ export function PlanCard({
   onCtaClick,
   isCurrent = false,
   isHighlighted = false,
+  ctaVariant = "default",
+  ctaDisabled = false,
   footer,
 }: PlanCardProps) {
   return (
@@ -55,9 +59,9 @@ export function PlanCard({
         {ctaLabel ? (
           <Button
             className="w-full justify-center"
-            variant={isCurrent ? "secondary" : "default"}
+            variant={isCurrent ? "secondary" : ctaVariant}
             onClick={onCtaClick}
-            disabled={isCurrent}
+            disabled={isCurrent || ctaDisabled}
           >
             {isCurrent ? "Current plan" : ctaLabel}
           </Button>

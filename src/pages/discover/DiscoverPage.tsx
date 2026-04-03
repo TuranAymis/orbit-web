@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Compass, Flame, RefreshCcw, Sparkles, TrendingUp } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
 import { PageContainer } from "@/shared/ui/page-container";
 import { GroupGrid } from "@/features/groups/list-groups/ui/GroupGrid";
@@ -64,21 +65,32 @@ function DiscoverErrorState({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-function DiscoverEmptyState({ activeTab }: { activeTab: DiscoverTab }) {
+function DiscoverEmptyState({
+  activeTab,
+  onRefresh,
+  onBrowseEvents,
+}: {
+  activeTab: DiscoverTab;
+  onRefresh: () => void;
+  onBrowseEvents: () => void;
+}) {
   const copy =
     activeTab === "groups"
       ? {
           title: "No groups are ready yet",
-          description: "We’ll surface fresh communities here as soon as the backend feed returns them.",
+          description:
+            "We couldn't find any communities in the current feed yet. Refresh for a fresh sync or browse live events while the network catches up.",
         }
       : activeTab === "events"
         ? {
-            title: "No events are available yet",
-            description: "Check back soon for upcoming sessions, launches, and community meetups.",
+          title: "No events are available yet",
+          description:
+            "No live sessions are showing up right now. Refresh the feed or jump back to groups to find active communities first.",
           }
         : {
             title: "No trends are active yet",
-            description: "Trending signals will appear here once group and event activity starts to build.",
+            description:
+              "Trending signals will appear here once communities and events begin picking up momentum in the feed.",
           };
 
   return (
@@ -87,6 +99,24 @@ function DiscoverEmptyState({ activeTab }: { activeTab: DiscoverTab }) {
       <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
         {copy.description}
       </p>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <Button variant="outline" onClick={onRefresh}>
+          <RefreshCcw className="mr-2 h-4 w-4" />
+          Refresh feed
+        </Button>
+        {activeTab !== "events" ? (
+          <Button variant="secondary" onClick={onBrowseEvents}>
+            Browse events
+          </Button>
+        ) : (
+          <Link
+            to="/groups"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-white/15"
+          >
+            Explore groups
+          </Link>
+        )}
+      </div>
     </section>
   );
 }
@@ -202,11 +232,31 @@ export function DiscoverPage() {
         ) : error ? (
           <DiscoverErrorState onRetry={() => void refetch()} />
         ) : activeTab === "groups" ? (
-          <GroupGrid groups={groups} isEmpty={groups.length === 0} />
+          groups.length === 0 ? (
+            <DiscoverEmptyState
+              activeTab={activeTab}
+              onRefresh={() => void refetch()}
+              onBrowseEvents={() => setActiveTab("events")}
+            />
+          ) : (
+            <GroupGrid groups={groups} />
+          )
         ) : activeTab === "events" ? (
-          events.length === 0 ? <DiscoverEmptyState activeTab={activeTab} /> : <EventGrid events={events} />
+          events.length === 0 ? (
+            <DiscoverEmptyState
+              activeTab={activeTab}
+              onRefresh={() => void refetch()}
+              onBrowseEvents={() => setActiveTab("events")}
+            />
+          ) : (
+            <EventGrid events={events} />
+          )
         ) : trending.length === 0 ? (
-          <DiscoverEmptyState activeTab={activeTab} />
+          <DiscoverEmptyState
+            activeTab={activeTab}
+            onRefresh={() => void refetch()}
+            onBrowseEvents={() => setActiveTab("events")}
+          />
         ) : (
           <TrendingGrid items={trending} />
         )}

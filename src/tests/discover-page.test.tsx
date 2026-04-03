@@ -154,4 +154,29 @@ describe("DiscoverPage", () => {
 
     expect(refetch).toHaveBeenCalled();
   });
+
+  it("renders actionable CTAs in the empty state", async () => {
+    const refetch = vi.fn();
+    vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
+      groups: [],
+      events: [],
+      trending: [],
+      isLoading: false,
+      error: null,
+      isEmpty: true,
+      refetch,
+    });
+
+    const user = userEvent.setup();
+    renderDiscoverPage();
+
+    expect(screen.getByText(/no groups are ready yet/i)).toBeInTheDocument();
+    const refreshButtons = screen.getAllByRole("button", { name: /refresh feed/i });
+    expect(refreshButtons).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /browse events/i })).toBeInTheDocument();
+
+    await user.click(refreshButtons[1]);
+
+    expect(refetch).toHaveBeenCalled();
+  });
 });

@@ -24,6 +24,9 @@ export function PlanComparison({
   onUpgrade,
   isUpgrading = false,
 }: PlanComparisonProps) {
+  const isFreePlanCurrent = membership.tier === "free";
+  const isPremiumPlanCurrent = membership.tier === "premium";
+
   return (
     <div className="grid gap-5 xl:grid-cols-2">
       <PlanCard
@@ -31,18 +34,21 @@ export function PlanComparison({
         tier="free"
         description="A strong starting plan for exploring public communities and events."
         benefits={freeBenefits}
-        isCurrent={membership.tier === "free"}
-        ctaLabel="Current plan"
+        isCurrent={isFreePlanCurrent}
+        ctaLabel={isPremiumPlanCurrent ? "Free plan" : "Current plan"}
+        ctaVariant="outline"
+        ctaDisabled={isPremiumPlanCurrent}
       />
       <PlanCard
         title="Orbit Premium"
         tier="premium"
         description="Unlock premium-only spaces, richer chat access, and faster support."
         benefits={premiumBenefits}
-        isCurrent={membership.tier === "premium"}
+        isCurrent={isPremiumPlanCurrent}
         isHighlighted
         ctaLabel={isUpgrading ? "Upgrading..." : "Upgrade to premium"}
         onCtaClick={onUpgrade}
+        ctaDisabled={isUpgrading}
       />
     </div>
   );
