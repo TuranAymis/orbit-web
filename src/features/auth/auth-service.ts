@@ -1,3 +1,5 @@
+import { appConfig } from "@/config/appConfig";
+import { httpClient, HttpError } from "@/shared/lib/http/httpClient";
 import type { AuthSession, LoginCredentials } from "@/features/auth/types";
 
 const DEMO_EMAIL = "demo@orbit.dev";
@@ -12,6 +14,9 @@ const mockSession: AuthSession = {
     membershipTier: "Core",
     avatarFallback: "DO",
   },
+  accessToken: "test-access-token",
+  tokenType: "bearer",
+  expiresIn: 3600,
 };
 
 export class AuthError extends Error {}
@@ -35,4 +40,91 @@ export async function loginWithMockSession(
   }
 
   throw new AuthError("Use demo@orbit.dev and orbit123 to sign in.");
+}
+
+interface BackendLoginResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+interface BackendUserResponse {
+  id: string;
+  full_name: string;
+  email: string;
+  membership_level?: string;
+}
+
+function createAvatarFallback(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function mapMembershipTier(value?: string) {
+  return value === "premium" ? "Premium" : "Free";
+}
+
+function mapBackendSession(
+  tokenPayload: BackendLoginResponse,
+  userPayload: BackendUserResponse,
+): AuthSession {
+  return {
+    isAuthenticated: true,
+    accessToken: tokenPayload.access_token,
+    tokenType: tokenPayload.token_type,
+    expiresIn: tokenPayload.expires_in,
+    user: {
+      id: userPayload.id,
+      name: userPayload.full_name,
+      email: userPayload.email,
+      membershipTier: mapMembershipTier(userPayload.membership_level),
+      avatarFallback: createAvatarFallback(userPayload.full_name),
+    },
+  };
+}
+
+function logAuthDebug(message: string, meta?: unknown) {
+  if (!appConfig.isDevelopment) {
+    return;
+  }
+
+  if (meta === undefined) {
+    console.info(`[orbit:auth] ${message}`);
+    return;
+  }
+
+  console.info(`[orbit:auth] ${message}`, meta);
+}
+
+export async function loginWithBackendSession(
+  credentials: LoginCredentials,
+): Promise<AuthSession> {
+  if (import.meta.env.MODE === "test") {
+    return loginWithMockSession(credentials);
+  }
+
+  try {
+    logAuthDebug("Attempting local backend login");
+
+    const tokenPayload = await httpClient.post<BackendLoginResponse>("/auth/login", {
+      email: credentials.email.trim().toLowerCase(),
+      password: credentials.password,
+    });
+
+    const userPayload = await httpClient.get<BackendUserResponse>("/users/me", {
+      token: tokenPayload.access_token,
+    });
+
+    return mapBackendSession(tokenPayload, userPayload);
+  } catch (error) {
+    if (error instanceof HttpError) {
+      throw new AuthError(error.message);
+    }
+
+    throw new AuthError("Orbit could not reach the local backend.");
+  }
 }

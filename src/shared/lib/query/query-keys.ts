@@ -15,4 +15,13 @@ export const orbitQueryKeys = {
     all: ["notifications"] as const,
     unreadCount: ["notifications", "unread-count"] as const,
   },
+  membership: {
+    current: ["membership", "current"] as const,
+  },
+  profile: {
+    current: ["profile", "current"] as const,
+  },
+  settings: {
+    current: ["settings", "current"] as const,
+  },
 };

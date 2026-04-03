@@ -33,3 +33,7 @@ export function writeStoredSession(session: AuthSession | null) {
 
   window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
 }
+
+export function getStoredAccessToken(): string | null {
+  return readStoredSession()?.accessToken ?? null;
+}

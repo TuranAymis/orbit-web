@@ -1,5 +1,6 @@
 import { Bell, Menu, Search } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/useAuth";
 import { NotificationBadge } from "@/entities/notification/ui/NotificationBadge";
 import { useUnreadNotifications } from "@/features/notifications/get-unread-count/model/useUnreadNotifications";
@@ -16,6 +17,7 @@ export function Topbar({ onOpenSidebar }: TopbarProps) {
   const { user } = useAuth();
   const { unreadCount } = useUnreadNotifications();
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <header
@@ -58,7 +60,12 @@ export function Topbar({ onOpenSidebar }: TopbarProps) {
           </div>
         ) : null}
       </div>
-      <Button variant="ghost" size="icon" aria-label="Profile menu">
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Profile menu"
+        onClick={() => navigate("/profile")}
+      >
         <Avatar className="h-9 w-9">
           <AvatarFallback>{user?.avatarFallback ?? "OR"}</AvatarFallback>
         </Avatar>

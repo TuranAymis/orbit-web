@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers/AppProviders";
 import type { AuthSession } from "@/features/auth/types";
@@ -22,7 +23,9 @@ const demoSession: AuthSession = {
 function renderTopbar() {
   return render(
     <AppProviders initialSession={demoSession}>
-      <Topbar onOpenSidebar={() => undefined} />
+      <MemoryRouter>
+        <Topbar onOpenSidebar={() => undefined} />
+      </MemoryRouter>
     </AppProviders>,
   );
 }

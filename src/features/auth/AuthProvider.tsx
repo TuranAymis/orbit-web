@@ -7,7 +7,7 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
-import { loginWithMockSession } from "@/features/auth/auth-service";
+import { loginWithBackendSession } from "@/features/auth/auth-service";
 import { readStoredSession, writeStoredSession } from "@/features/auth/auth-storage";
 import type { AuthSession, LoginCredentials } from "@/features/auth/types";
 
@@ -53,7 +53,7 @@ export function AuthProvider({
   }, [initialSession]);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
-    const nextSession = await loginWithMockSession(credentials);
+    const nextSession = await loginWithBackendSession(credentials);
     setSession(nextSession);
     writeStoredSession(nextSession);
   }, []);
