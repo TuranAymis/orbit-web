@@ -6,6 +6,7 @@ import { AppShell } from "@/widgets/app-shell/AppShell";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { DiscoverPage } from "@/pages/discover/DiscoverPage";
 import { GroupsPage } from "@/pages/groups/GroupsPage";
+import { GroupDetailPage } from "@/pages/groups/GroupDetailPage";
 import { ChatPage } from "@/pages/chat/ChatPage";
 import { EventsPage } from "@/pages/events/EventsPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
@@ -39,6 +40,10 @@ export const routes: RouteObject[] = [
           {
             path: "groups",
             element: <GroupsPage />,
+          },
+          {
+            path: "groups/:groupId",
+            element: <GroupDetailPage />,
           },
           {
             path: "chat",

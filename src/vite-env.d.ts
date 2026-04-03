@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  readonly VITE_ORBIT_API_BASE_URL?: string;
   readonly VITE_ORBIT_CHAT_TRANSPORT?: "mock" | "socket";
   readonly VITE_ORBIT_CHAT_SOCKET_URL?: string;
   readonly VITE_ORBIT_CHAT_SOCKET_PATH?: string;
