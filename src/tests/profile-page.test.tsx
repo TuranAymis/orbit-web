@@ -105,4 +105,31 @@ describe("ProfilePage", () => {
       }, expect.anything());
     });
   });
+
+  it("renders a friendly zero-state helper when profile stats are all zero", async () => {
+    vi.spyOn(getProfileApi, "getProfile").mockResolvedValue({
+      id: "user_new",
+      name: "New Orbit",
+      email: "new@orbit.dev",
+      avatarUrl: null,
+      bio: "Just getting started.",
+      location: "Remote",
+      joinedAt: "2026-04-03T10:00:00.000Z",
+      membershipTier: "Free",
+      stats: {
+        groupsJoined: 0,
+        eventsAttended: 0,
+        messagesSent: 0,
+      },
+      activityPreview: [],
+    });
+
+    renderProfilePage();
+
+    await screen.findByRole("heading", { name: /new orbit/i });
+
+    expect(screen.getByText(/your orbit profile is ready to grow/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /join your first group/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /start a conversation/i })).toBeInTheDocument();
+  });
 });

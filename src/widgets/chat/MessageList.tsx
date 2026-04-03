@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { Message } from "@/entities/message/model/types";
 import { ChatEmptyState } from "@/widgets/chat/ChatEmptyState";
 import { MessageItem } from "@/widgets/chat/MessageItem";
@@ -11,21 +11,53 @@ interface MessageListProps {
 export function MessageList({ messages, channelName = "this channel" }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const previousMessageCountRef = useRef(0);
 
-  useEffect(() => {
-    if (typeof endRef.current?.scrollIntoView === "function") {
-      endRef.current.scrollIntoView({ block: "end" });
-    }
+  const dedupedMessages = useMemo(() => {
+    const seenKeys = new Set<string>();
+
+    return messages.filter((message) => {
+      const key = message.serverMessageId ?? message.clientMessageId ?? message.id;
+
+      if (seenKeys.has(key)) {
+        return false;
+      }
+
+      seenKeys.add(key);
+      return true;
+    });
   }, [messages]);
 
-  if (messages.length === 0) {
+  useEffect(() => {
+    const container = scrollRef.current;
+    const nextMessageCount = dedupedMessages.length;
+    const lastMessage = dedupedMessages[dedupedMessages.length - 1];
+    const addedNewMessage = nextMessageCount > previousMessageCountRef.current;
+
+    previousMessageCountRef.current = nextMessageCount;
+
+    if (!container || !addedNewMessage || typeof endRef.current?.scrollIntoView !== "function") {
+      return;
+    }
+
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    const isNearBottom = distanceFromBottom < 120;
+    const shouldFollowConversation = isNearBottom || lastMessage?.status === "sending";
+
+    if (shouldFollowConversation) {
+      endRef.current.scrollIntoView({ block: "end" });
+    }
+  }, [dedupedMessages]);
+
+  if (dedupedMessages.length === 0) {
     return <ChatEmptyState channelName={channelName} />;
   }
 
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto pr-2">
       <div className="space-y-2">
-        {messages.map((message) => (
+        {dedupedMessages.map((message) => (
           <MessageItem key={message.id} message={message} />
         ))}
         <div ref={endRef} />

@@ -48,6 +48,35 @@ describe("MembershipPage", () => {
     expect(
       screen.getAllByRole("button", { name: /upgrade to premium/i }).length,
     ).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /^current plan$/i })).toBeDisabled();
+  });
+
+  it("renders the correct active and inactive plan CTA states", async () => {
+    vi.spyOn(membershipApi, "getCurrentMembership").mockResolvedValue({
+      tier: "premium",
+      status: "active",
+      startedAt: "2026-03-01T12:00:00.000Z",
+      renewsAt: "2026-05-01T12:00:00.000Z",
+      benefits: ["Priority support"],
+      limits: {
+        groupJoinsPerMonth: null,
+        eventRsvpsPerMonth: null,
+        storageGb: 50,
+      },
+    });
+    vi.spyOn(upgradeMembershipModule, "useUpgradeMembership").mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as never);
+
+    renderMembershipPage();
+
+    await waitForElementToBeRemoved(() => screen.getByTestId("membership-loading"));
+
+    const currentPlanButtons = screen.getAllByRole("button", { name: /^current plan$/i });
+    expect(currentPlanButtons).toHaveLength(1);
+    expect(currentPlanButtons[0]).toBeDisabled();
+    expect(screen.getByRole("button", { name: /free plan/i })).toBeDisabled();
   });
 
   it("renders loading state while membership is fetching", () => {
