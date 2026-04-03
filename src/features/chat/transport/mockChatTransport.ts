@@ -1,5 +1,9 @@
 import type { Message } from "@/entities/message/model/types";
-import type { ChatTransport } from "@/features/chat/transport/chatTransport";
+import type {
+  ChatConnectionStatus,
+  ChatTransport,
+  TransportOutgoingMessage,
+} from "@/features/chat/transport/chatTransport";
 
 interface MockChatTransportOptions {
   outgoingDelayMs?: number;
@@ -28,7 +32,13 @@ export function createMockChatTransport(
   const outgoingDelayMs = options.outgoingDelayMs ?? 320;
   const incomingDelayMs = options.incomingDelayMs ?? 1800;
   const listeners = new Set<(message: Message) => void>();
+  const connectionListeners = new Set<(status: ChatConnectionStatus) => void>();
   let incomingTimer: number | null = null;
+  let connectionTimer: number | null = null;
+
+  function emitConnectionStatus(status: ChatConnectionStatus) {
+    connectionListeners.forEach((listener) => listener(status));
+  }
 
   function ensureIncomingSimulation() {
     if (incomingTimer !== null || listeners.size === 0) {
@@ -44,7 +54,32 @@ export function createMockChatTransport(
   }
 
   return {
-    async sendMessage(message) {
+    connect() {
+      emitConnectionStatus("connecting");
+
+      if (connectionTimer !== null) {
+        window.clearTimeout(connectionTimer);
+      }
+
+      connectionTimer = window.setTimeout(() => {
+        emitConnectionStatus("connected");
+        ensureIncomingSimulation();
+      }, 120);
+    },
+    disconnect() {
+      emitConnectionStatus("disconnected");
+
+      if (connectionTimer !== null) {
+        window.clearTimeout(connectionTimer);
+        connectionTimer = null;
+      }
+
+      if (incomingTimer !== null) {
+        window.clearTimeout(incomingTimer);
+        incomingTimer = null;
+      }
+    },
+    async sendMessage(message: TransportOutgoingMessage) {
       await new Promise((resolve) => {
         window.setTimeout(resolve, outgoingDelayMs);
       });
@@ -71,6 +106,13 @@ export function createMockChatTransport(
           window.clearTimeout(incomingTimer);
           incomingTimer = null;
         }
+      };
+    },
+    subscribeToConnectionStatus(callback) {
+      connectionListeners.add(callback);
+
+      return () => {
+        connectionListeners.delete(callback);
       };
     },
   };

@@ -1,4 +1,5 @@
 import type { Channel, Member, Message } from "@/entities/message/model/types";
+import type { ChatConnectionStatus } from "@/features/chat/transport/chatTransport";
 import { ChatMain } from "@/widgets/chat/ChatMain";
 import { ChatSidebar } from "@/widgets/chat/ChatSidebar";
 import { MemberList } from "@/widgets/chat/MemberList";
@@ -10,6 +11,7 @@ interface ChatLayoutProps {
   activeChannel?: Channel;
   messages: Message[];
   members: Member[];
+  connectionStatus: ChatConnectionStatus;
   draft: string;
   setDraft: (value: string) => void;
   sendMessage: () => void;
@@ -22,6 +24,7 @@ export function ChatLayout({
   activeChannel,
   messages,
   members,
+  connectionStatus,
   draft,
   setDraft,
   sendMessage,
@@ -36,6 +39,7 @@ export function ChatLayout({
       <ChatMain
         activeChannel={activeChannel}
         messages={messages}
+        connectionStatus={connectionStatus}
         draft={draft}
         setDraft={setDraft}
         sendMessage={sendMessage}
