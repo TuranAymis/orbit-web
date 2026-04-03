@@ -1,4 +1,8 @@
 import { appConfig } from "@/config/appConfig";
+import {
+  formatMembershipTierLabel,
+  mapBackendMembershipLevelToTier,
+} from "@/entities/membership/mappers";
 import { httpClient, HttpError } from "@/shared/lib/http/httpClient";
 import type { AuthSession, LoginCredentials } from "@/features/auth/types";
 
@@ -64,14 +68,21 @@ function createAvatarFallback(name: string) {
     .join("");
 }
 
-function mapMembershipTier(value?: string) {
-  return value === "premium" ? "Premium" : "Free";
-}
-
 function mapBackendSession(
   tokenPayload: BackendLoginResponse,
   userPayload: BackendUserResponse,
 ): AuthSession {
+  const mappedMembershipTier = formatMembershipTierLabel(
+    mapBackendMembershipLevelToTier(userPayload.membership_level),
+  );
+
+  if (appConfig.isDevelopment) {
+    console.info("[orbit:auth] backend membership level -> session tier", {
+      rawMembershipLevel: userPayload.membership_level ?? null,
+      mappedMembershipTier,
+    });
+  }
+
   return {
     isAuthenticated: true,
     accessToken: tokenPayload.access_token,
@@ -81,7 +92,7 @@ function mapBackendSession(
       id: userPayload.id,
       name: userPayload.full_name,
       email: userPayload.email,
-      membershipTier: mapMembershipTier(userPayload.membership_level),
+      membershipTier: mappedMembershipTier,
       avatarFallback: createAvatarFallback(userPayload.full_name),
     },
   };
