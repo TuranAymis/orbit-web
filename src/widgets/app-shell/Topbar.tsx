@@ -1,8 +1,12 @@
 import { Bell, Menu, Search } from "lucide-react";
+import { useState } from "react";
 import { useAuth } from "@/features/auth/useAuth";
+import { NotificationBadge } from "@/entities/notification/ui/NotificationBadge";
+import { useUnreadNotifications } from "@/features/notifications/get-unread-count/model/useUnreadNotifications";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { NotificationPanel } from "@/widgets/notifications/NotificationPanel";
 
 interface TopbarProps {
   onOpenSidebar: () => void;
@@ -10,6 +14,8 @@ interface TopbarProps {
 
 export function Topbar({ onOpenSidebar }: TopbarProps) {
   const { user } = useAuth();
+  const { unreadCount } = useUnreadNotifications();
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
 
   return (
     <header
@@ -33,9 +39,25 @@ export function Topbar({ onOpenSidebar }: TopbarProps) {
           className="pl-9"
         />
       </div>
-      <Button variant="ghost" size="icon" aria-label="Notifications">
-        <Bell className="h-5 w-5" />
-      </Button>
+      <div className="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Notifications"
+          aria-expanded={isNotificationPanelOpen}
+          onClick={() => setIsNotificationPanelOpen((current) => !current)}
+        >
+          <span className="relative inline-flex">
+            <Bell className="h-5 w-5" />
+            <NotificationBadge count={unreadCount} />
+          </span>
+        </Button>
+        {isNotificationPanelOpen ? (
+          <div className="absolute right-0 top-12 z-30">
+            <NotificationPanel />
+          </div>
+        ) : null}
+      </div>
       <Button variant="ghost" size="icon" aria-label="Profile menu">
         <Avatar className="h-9 w-9">
           <AvatarFallback>{user?.avatarFallback ?? "OR"}</AvatarFallback>

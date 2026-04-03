@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
-import {
-  getDiscoverFeed,
-} from "@/features/discover/get-discover-feed/api/getDiscoverFeed";
+import { useQuery } from "@tanstack/react-query";
+import { getDiscoverFeed } from "@/features/discover/get-discover-feed/api/getDiscoverFeed";
 import type {
   DiscoverFeed,
   DiscoverTrendItem,
 } from "@/features/discover/get-discover-feed/mappers/discoverMapper";
+import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 
 interface UseDiscoverFeedResult extends DiscoverFeed {
   isLoading: boolean;
@@ -23,41 +22,25 @@ const initialFeed: DiscoverFeed = {
 export type { DiscoverTrendItem };
 
 export function useDiscoverFeed(): UseDiscoverFeedResult {
-  const [feed, setFeed] = useState<DiscoverFeed>(initialFeed);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const query = useQuery({
+    queryKey: orbitQueryKeys.discover.feed,
+    queryFn: getDiscoverFeed,
+  });
 
-  const loadDiscoverFeed = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const nextFeed = await getDiscoverFeed();
-      setFeed(nextFeed);
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError
-          : new Error("Failed to load discover feed."),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadDiscoverFeed();
-  }, [loadDiscoverFeed]);
+  const feed = query.data ?? initialFeed;
+  const error = query.error instanceof Error ? query.error : null;
 
   return {
     ...feed,
-    isLoading,
+    isLoading: query.isLoading,
     error,
     isEmpty:
-      !isLoading &&
+      !query.isLoading &&
       feed.groups.length === 0 &&
       feed.events.length === 0 &&
       feed.trending.length === 0,
-    refetch: loadDiscoverFeed,
+    refetch: async () => {
+      await query.refetch();
+    },
   };
 }

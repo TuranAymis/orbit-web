@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { EventListItem } from "@/entities/event/model/types";
 import { listEvents } from "@/features/events/list-events/api/listEvents";
+import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 
 interface UseEventsResult {
   data: EventListItem[];
@@ -11,33 +12,21 @@ interface UseEventsResult {
 }
 
 export function useEvents(): UseEventsResult {
-  const [data, setData] = useState<EventListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const query = useQuery({
+    queryKey: orbitQueryKeys.events.all,
+    queryFn: listEvents,
+  });
 
-  const loadEvents = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const nextEvents = await listEvents();
-      setData(nextEvents);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError : new Error("Failed to load events."));
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadEvents();
-  }, [loadEvents]);
+  const data = query.data ?? [];
+  const error = query.error instanceof Error ? query.error : null;
 
   return {
     data,
-    isLoading,
+    isLoading: query.isLoading,
     error,
-    isEmpty: !isLoading && data.length === 0,
-    refetch: loadEvents,
+    isEmpty: !query.isLoading && data.length === 0,
+    refetch: async () => {
+      await query.refetch();
+    },
   };
 }
