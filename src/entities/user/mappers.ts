@@ -8,6 +8,10 @@ import type {
   UserProfileStats,
   UserSettings,
 } from "@/entities/user/model/types";
+import {
+  formatMembershipTierLabel,
+  mapBackendMembershipLevelToTier,
+} from "@/entities/membership/mappers";
 
 interface ProfileResponse {
   id?: string;
@@ -56,6 +60,9 @@ function mapThemePreference(value?: string): ThemePreference {
 
 export function mapProfileResponse(payload: unknown): UserProfile {
   const response = (payload ?? {}) as ProfileResponse;
+  const membershipTier = formatMembershipTierLabel(
+    mapBackendMembershipLevelToTier(response.membershipTier ?? response.membership_level),
+  );
 
   return {
     id: response.id ?? "user_unknown",
@@ -65,7 +72,7 @@ export function mapProfileResponse(payload: unknown): UserProfile {
     bio: response.bio ?? "No bio has been added yet.",
     location: response.location ?? "Remote",
     joinedAt: response.joinedAt ?? response.created_at ?? null,
-    membershipTier: response.membershipTier ?? response.membership_level ?? "Free",
+    membershipTier,
     stats: {
       groupsJoined: response.stats?.groupsJoined ?? 0,
       eventsAttended: response.stats?.eventsAttended ?? 0,

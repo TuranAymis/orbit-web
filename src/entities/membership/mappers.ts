@@ -3,6 +3,7 @@ import type {
   MembershipStatus,
   MembershipTier,
 } from "@/entities/membership/model/types";
+import { appConfig } from "@/config/appConfig";
 
 interface MembershipResponse {
   tier?: string;
@@ -18,9 +19,23 @@ interface MembershipResponse {
   } | null;
 }
 
-function mapTier(tier?: string): MembershipTier {
-  const normalizedTier = tier?.toLowerCase();
-  return normalizedTier === "premium" ? "premium" : "free";
+export function mapBackendMembershipLevelToTier(level?: string | null): MembershipTier {
+  const normalizedLevel = level?.trim().toLowerCase();
+  const mappedTier =
+    normalizedLevel === "premium" || normalizedLevel === "paid" ? "premium" : "free";
+
+  if (appConfig.isDevelopment) {
+    console.info("[orbit:membership] backend level -> tier", {
+      rawMembershipLevel: level ?? null,
+      mappedTier,
+    });
+  }
+
+  return mappedTier;
+}
+
+export function formatMembershipTierLabel(tier: MembershipTier): string {
+  return tier === "premium" ? "Premium" : "Free";
 }
 
 function mapStatus(status?: string): MembershipStatus {
@@ -38,7 +53,7 @@ export function mapMembershipResponse(payload: unknown): Membership {
   const response = (payload ?? {}) as MembershipResponse;
 
   return {
-    tier: mapTier(response.tier ?? response.membership_level),
+    tier: mapBackendMembershipLevelToTier(response.tier ?? response.membership_level),
     status: mapStatus(response.status),
     renewsAt: response.renewsAt ?? null,
     startedAt: response.startedAt ?? null,
