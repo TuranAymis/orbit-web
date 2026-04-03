@@ -1,11 +1,21 @@
 import { Hash, MessageSquareMore } from "lucide-react";
 import type { Channel } from "@/entities/message/model/types";
+import type { ChatConnectionStatus } from "@/features/chat/transport/chatTransport";
+import { cn } from "@/lib/utils";
 
 interface ChatHeaderProps {
   activeChannel?: Channel;
+  connectionStatus: ChatConnectionStatus;
 }
 
-export function ChatHeader({ activeChannel }: ChatHeaderProps) {
+const connectionLabelMap: Record<ChatConnectionStatus, string> = {
+  connecting: "Connecting",
+  connected: "Connected",
+  disconnected: "Disconnected",
+  reconnecting: "Reconnecting",
+};
+
+export function ChatHeader({ activeChannel, connectionStatus }: ChatHeaderProps) {
   if (!activeChannel) {
     return null;
   }
@@ -30,8 +40,20 @@ export function ChatHeader({ activeChannel }: ChatHeaderProps) {
           </p>
         </div>
       </div>
-      <div className="hidden rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground md:block">
-        Orbit chat
+      <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground md:inline-flex">
+        <span
+          className={cn(
+            "h-2.5 w-2.5 rounded-full",
+            connectionStatus === "connected"
+              ? "bg-emerald-400"
+              : connectionStatus === "reconnecting"
+                ? "bg-amber-400"
+                : connectionStatus === "connecting"
+                  ? "bg-sky-400"
+                  : "bg-slate-500",
+          )}
+        />
+        {connectionLabelMap[connectionStatus]}
       </div>
     </div>
   );

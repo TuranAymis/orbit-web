@@ -12,6 +12,7 @@ export function ChatPage() {
     activeChannel,
     messages,
     members,
+    connectionStatus,
     sendMessage,
     draft,
     setDraft,
@@ -35,6 +36,7 @@ export function ChatPage() {
         activeChannel={activeChannel}
         messages={messages}
         members={members}
+        connectionStatus={connectionStatus}
         draft={draft}
         setDraft={setDraft}
         sendMessage={sendMessage}

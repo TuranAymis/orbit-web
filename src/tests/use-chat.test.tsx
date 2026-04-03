@@ -4,7 +4,10 @@ import { AppProviders } from "@/app/providers/AppProviders";
 import { useChat } from "@/features/chat/model/useChat";
 import type { AuthSession } from "@/features/auth/types";
 import type { Message } from "@/entities/message/model/types";
-import type { ChatTransport } from "@/features/chat/transport/chatTransport";
+import type {
+  ChatConnectionStatus,
+  ChatTransport,
+} from "@/features/chat/transport/chatTransport";
 
 const demoSession: AuthSession = {
   isAuthenticated: true,
@@ -23,8 +26,15 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 function createTestTransport(): ChatTransport {
   const listeners = new Set<(message: Message) => void>();
+  const connectionListeners = new Set<(status: ChatConnectionStatus) => void>();
 
   return {
+    connect() {
+      connectionListeners.forEach((listener) => listener("connected"));
+    },
+    disconnect() {
+      connectionListeners.forEach((listener) => listener("disconnected"));
+    },
     sendMessage(message) {
       return new Promise((resolve) => {
         window.setTimeout(() => {
@@ -61,6 +71,13 @@ function createTestTransport(): ChatTransport {
 
       return () => {
         listeners.delete(callback);
+      };
+    },
+    subscribeToConnectionStatus(callback) {
+      connectionListeners.add(callback);
+
+      return () => {
+        connectionListeners.delete(callback);
       };
     },
   };

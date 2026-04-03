@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Channel, Member, Message } from "@/entities/message/model/types";
+import { orbitRuntimeConfig } from "@/config/env";
 import { useAuth } from "@/features/auth/useAuth";
-import type { ChatTransport } from "@/features/chat/transport/chatTransport";
+import type {
+  ChatConnectionStatus,
+  ChatTransport,
+  TransportOutgoingMessage,
+} from "@/features/chat/transport/chatTransport";
 import { createMockChatTransport } from "@/features/chat/transport/mockChatTransport";
+import { createSocketChatTransport } from "@/features/chat/transport/socketChatTransport";
 
 const mockChannels: Channel[] = [
   { id: "channel_general", name: "general", kind: "channel", unreadCount: 2 },
@@ -155,6 +161,7 @@ interface UseChatResult {
   activeChannel: Channel | undefined;
   messages: Message[];
   members: Member[];
+  connectionStatus: ChatConnectionStatus;
   sendMessage: () => void;
   draft: string;
   setDraft: (draft: string) => void;
@@ -165,15 +172,32 @@ interface UseChatOptions {
   transport?: ChatTransport;
 }
 
+function createDefaultChatTransport() {
+  if (orbitRuntimeConfig.chatTransportMode === "mock") {
+    return createMockChatTransport();
+  }
+
+  return createSocketChatTransport({
+    url: orbitRuntimeConfig.chatSocketUrl,
+    path: orbitRuntimeConfig.chatSocketPath,
+    namespace: orbitRuntimeConfig.chatSocketNamespace,
+    sendEvent: orbitRuntimeConfig.chatSendEvent,
+    messageEvent: orbitRuntimeConfig.chatMessageEvent,
+    ackTimeoutMs: orbitRuntimeConfig.chatAckTimeoutMs,
+  });
+}
+
 export function useChat(options: UseChatOptions = {}): UseChatResult {
   const { user } = useAuth();
   const [activeChannelId, setActiveChannelId] = useState<string>("channel_general");
   const [draft, setDraft] = useState("");
+  const [connectionStatus, setConnectionStatus] =
+    useState<ChatConnectionStatus>("disconnected");
   const [messagesByChannel, setMessagesByChannel] = useState<MessagesByChannel>(() =>
     createInitialMessagesByChannel(mockMessages),
   );
   const transport = useMemo(
-    () => options.transport ?? createMockChatTransport(),
+    () => options.transport ?? createDefaultChatTransport(),
     [options.transport],
   );
 
@@ -188,14 +212,20 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
   );
 
   useEffect(() => {
+    const unsubscribeConnection = transport.subscribeToConnectionStatus(
+      setConnectionStatus,
+    );
     const unsubscribe = transport.subscribeToMessages((incomingMessage) => {
       setMessagesByChannel((currentMessages) =>
         appendMessage(currentMessages, incomingMessage),
       );
     });
+    transport.connect();
 
     return () => {
+      unsubscribeConnection();
       unsubscribe();
+      transport.disconnect();
     };
   }, [transport]);
 
@@ -220,6 +250,16 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
       status: "sending",
       canRetry: false,
     };
+    const outgoingMessage: TransportOutgoingMessage = {
+      clientMessageId,
+      channelId: nextMessage.channelId,
+      userId: nextMessage.userId,
+      username: nextMessage.username,
+      avatarFallback: nextMessage.avatarFallback,
+      content: nextMessage.content,
+      createdAt: nextMessage.createdAt,
+      type: nextMessage.type,
+    };
 
     setMessagesByChannel((currentMessages) =>
       appendMessage(currentMessages, nextMessage),
@@ -227,7 +267,7 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
     setDraft("");
 
     void transport
-      .sendMessage(nextMessage)
+      .sendMessage(outgoingMessage)
       .then(({ clientMessageId: acknowledgedClientId, message: sentMessage }) => {
         setMessagesByChannel((currentMessages) =>
           reconcileMessage(currentMessages, acknowledgedClientId, () => ({
@@ -255,6 +295,7 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
     activeChannel,
     messages,
     members: mockMembers,
+    connectionStatus,
     sendMessage,
     draft,
     setDraft,
