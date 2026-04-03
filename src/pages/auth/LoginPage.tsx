@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/features/auth/AuthProvider";
 import { AuthError } from "@/features/auth/auth-service";
+import { useAuth } from "@/features/auth/useAuth";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -50,6 +50,11 @@ export function LoginPage() {
             center.
           </p>
         </div>
+        {isLoading ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-8 text-center text-sm text-muted-foreground">
+            Restoring your Orbit session...
+          </div>
+        ) : null}
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <label htmlFor="email" className="text-sm font-medium text-foreground">
@@ -88,7 +93,7 @@ export function LoginPage() {
           <Button
             className="w-full justify-center"
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isLoading}
           >
             {isSubmitting ? "Signing in..." : "Continue to Orbit"}
             <ArrowRight className="h-4 w-4" />

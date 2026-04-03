@@ -1,16 +1,44 @@
+import { MessageSquareText } from "lucide-react";
+import { useChat } from "@/features/chat/model/useChat";
+import { Button } from "@/shared/ui/button";
 import { PageContainer } from "@/shared/ui/page-container";
+import { ChatLayout } from "@/widgets/chat/ChatLayout";
 
 export function ChatPage() {
+  const {
+    channels,
+    activeChannelId,
+    setActiveChannelId,
+    activeChannel,
+    messages,
+    members,
+    sendMessage,
+    draft,
+    setDraft,
+  } = useChat();
+
   return (
     <PageContainer
-      title="Realtime Chat"
-      subtitle="Prepare the messaging canvas, conversations rail, and room context within the shared shell."
+      title="Orbit Workspace Chat"
+      subtitle="A local-first messaging architecture for channels, direct messages, and member presence before real-time transport lands."
+      actions={
+        <Button variant="outline">
+          <MessageSquareText className="h-4 w-4" />
+          New thread
+        </Button>
+      }
     >
-      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-        <p className="text-sm text-muted-foreground">
-          Conversation threads and message panels will be layered onto this page.
-        </p>
-      </div>
+      <ChatLayout
+        channels={channels}
+        activeChannelId={activeChannelId}
+        setActiveChannelId={setActiveChannelId}
+        activeChannel={activeChannel}
+        messages={messages}
+        members={members}
+        draft={draft}
+        setDraft={setDraft}
+        sendMessage={sendMessage}
+      />
     </PageContainer>
   );
 }
