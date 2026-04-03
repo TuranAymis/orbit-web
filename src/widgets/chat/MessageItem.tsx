@@ -15,6 +15,18 @@ function formatTime(createdAt: string) {
   }).format(new Date(createdAt));
 }
 
+function getStatusLabel(message: Message) {
+  if (message.status === "sending") {
+    return "Sending...";
+  }
+
+  if (message.status === "failed") {
+    return message.canRetry ? "Failed to send. Retry soon." : "Failed to send.";
+  }
+
+  return "Sent";
+}
+
 export function MessageItem({ message }: MessageItemProps) {
   if (message.type === "system") {
     return (
@@ -38,6 +50,18 @@ export function MessageItem({ message }: MessageItemProps) {
           >
             {formatTime(message.createdAt)}
           </time>
+          <span
+            className={cn(
+              "text-[10px] uppercase tracking-[0.24em]",
+              message.status === "failed"
+                ? "text-rose-300"
+                : message.status === "sending"
+                  ? "text-amber-300"
+                  : "text-muted-foreground/70",
+            )}
+          >
+            {getStatusLabel(message)}
+          </span>
         </div>
         <p className={cn("mt-1 text-sm leading-6 text-foreground/90")}>{message.content}</p>
       </div>

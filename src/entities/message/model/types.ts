@@ -2,6 +2,8 @@ export type MessageStatus = "sending" | "sent" | "failed";
 
 export interface Message {
   id: string;
+  clientMessageId: string;
+  serverMessageId?: string;
   channelId: string;
   userId: string;
   username: string;
@@ -10,6 +12,7 @@ export interface Message {
   createdAt: string;
   type: "text" | "file" | "system";
   status: MessageStatus;
+  canRetry?: boolean;
 }
 
 export interface Channel {
