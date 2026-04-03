@@ -1,14 +1,5 @@
-import { orbitRuntimeConfig } from "@/config/env";
-
 export async function leaveGroup(groupId: string) {
-  const response = await fetch(
-    `${orbitRuntimeConfig.apiBaseUrl}/groups/${encodeURIComponent(groupId)}/leave`,
-    {
-      method: "POST",
-    },
+  throw new Error(
+    `Leaving groups is not supported by the local backend yet for group ${groupId}.`,
   );
-
-  if (!response.ok) {
-    throw new Error("Failed to leave group.");
-  }
 }

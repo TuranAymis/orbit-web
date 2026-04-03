@@ -1,17 +1,11 @@
-import { orbitRuntimeConfig } from "@/config/env";
 import {
   mapDiscoverFeedResponse,
   type DiscoverFeed,
 } from "@/features/discover/get-discover-feed/mappers/discoverMapper";
+import { httpClient } from "@/shared/lib/http/httpClient";
 
 async function getJsonOrThrow(path: string): Promise<unknown> {
-  const response = await fetch(`${orbitRuntimeConfig.apiBaseUrl}${path}`);
-
-  if (!response.ok) {
-    throw new Error("Failed to load discover feed.");
-  }
-
-  return (await response.json()) as unknown;
+  return httpClient.get<unknown>(path);
 }
 
 export async function getDiscoverFeed(): Promise<DiscoverFeed> {

@@ -9,6 +9,9 @@ export interface AuthUser {
 export interface AuthSession {
   isAuthenticated: boolean;
   user: AuthUser;
+  accessToken?: string;
+  tokenType?: string;
+  expiresIn?: number;
 }
 
 export interface LoginCredentials {

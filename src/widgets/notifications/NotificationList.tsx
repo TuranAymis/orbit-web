@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Notification } from "@/entities/notification/model/types";
 import { NotificationItem } from "@/entities/notification/ui/NotificationItem";
 
@@ -6,7 +7,7 @@ interface NotificationListProps {
   onNotificationClick: (notification: Notification) => void;
 }
 
-export function NotificationList({
+export const NotificationList = memo(function NotificationList({
   notifications,
   onNotificationClick,
 }: NotificationListProps) {
@@ -21,4 +22,4 @@ export function NotificationList({
       ))}
     </div>
   );
-}
+});

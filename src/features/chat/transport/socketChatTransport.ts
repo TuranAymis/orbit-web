@@ -1,4 +1,5 @@
 import { io, type Socket } from "socket.io-client";
+import { appConfig } from "@/config/appConfig";
 import type { Message } from "@/entities/message/model/types";
 import type {
   ChatConnectionStatus,
@@ -61,6 +62,10 @@ export function createSocketChatTransport(
   const connectionListeners = new Set<(status: ChatConnectionStatus) => void>();
 
   function emitConnectionStatus(status: ChatConnectionStatus) {
+    if (appConfig.isDevelopment) {
+      console.info("[orbit:socket]", status);
+    }
+
     connectionListeners.forEach((listener) => listener(status));
   }
 

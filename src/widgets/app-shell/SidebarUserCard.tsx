@@ -1,4 +1,5 @@
 import { useAuth } from "@/features/auth/useAuth";
+import { MembershipBadge } from "@/entities/membership/ui/MembershipBadge";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { Button } from "@/shared/ui/button";
 
@@ -25,7 +26,12 @@ export function SidebarUserCard() {
           <p className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
             Membership
           </p>
-          <p className="mt-1 text-sm font-medium text-foreground">
+          <div className="mt-2">
+            <MembershipBadge
+              tier={user.membershipTier.toLowerCase() === "premium" ? "premium" : "free"}
+            />
+          </div>
+          <p className="mt-2 text-sm font-medium text-foreground">
             {user.membershipTier} Member
           </p>
         </div>

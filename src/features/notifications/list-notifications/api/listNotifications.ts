@@ -1,15 +1,21 @@
-import { orbitRuntimeConfig } from "@/config/env";
+import { appConfig } from "@/config/appConfig";
 import { mapNotificationsResponse } from "@/entities/notification/mappers";
 import type { Notification } from "@/entities/notification/model/types";
+import { HttpError, httpClient } from "@/shared/lib/http/httpClient";
 
 export async function listNotifications(): Promise<Notification[]> {
-  const response = await fetch(`${orbitRuntimeConfig.apiBaseUrl}/notifications`);
+  try {
+    const payload = await httpClient.get<unknown>("/notifications");
+    return mapNotificationsResponse(payload);
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 404) {
+      if (appConfig.isDevelopment) {
+        console.info("[orbit:notifications] Local backend has no /notifications endpoint yet.");
+      }
 
-  if (!response.ok) {
-    throw new Error("Failed to load notifications.");
+      return [];
+    }
+
+    throw error;
   }
-
-  const payload = (await response.json()) as unknown;
-
-  return mapNotificationsResponse(payload);
 }

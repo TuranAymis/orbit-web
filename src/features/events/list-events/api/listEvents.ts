@@ -1,15 +1,9 @@
-import { orbitRuntimeConfig } from "@/config/env";
 import { mapEventListResponse } from "@/entities/event/mappers";
 import type { EventListItem } from "@/entities/event/model/types";
+import { httpClient } from "@/shared/lib/http/httpClient";
 
 export async function listEvents(): Promise<EventListItem[]> {
-  const response = await fetch(`${orbitRuntimeConfig.apiBaseUrl}/events`);
-
-  if (!response.ok) {
-    throw new Error("Failed to load events.");
-  }
-
-  const payload = (await response.json()) as unknown;
+  const payload = await httpClient.get<unknown>("/events");
 
   return mapEventListResponse(payload as Parameters<typeof mapEventListResponse>[0]);
 }

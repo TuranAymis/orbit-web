@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Channel, Member, Message } from "@/entities/message/model/types";
-import { orbitRuntimeConfig } from "@/config/env";
+import { appConfig } from "@/config/appConfig";
 import { useAuth } from "@/features/auth/useAuth";
 import type {
   ChatConnectionStatus,
   ChatTransport,
   TransportOutgoingMessage,
 } from "@/features/chat/transport/chatTransport";
+import { createHttpChatTransport } from "@/features/chat/transport/httpChatTransport";
 import { createMockChatTransport } from "@/features/chat/transport/mockChatTransport";
 import { createSocketChatTransport } from "@/features/chat/transport/socketChatTransport";
+import { listGroups } from "@/features/groups/list-groups/api/listGroups";
+import { httpClient } from "@/shared/lib/http/httpClient";
 
 const mockChannels: Channel[] = [
   { id: "channel_general", name: "general", kind: "channel", unreadCount: 2 },
@@ -170,31 +173,43 @@ interface UseChatResult {
 
 interface UseChatOptions {
   transport?: ChatTransport;
+  preferredChannelId?: string | null;
 }
 
 function createDefaultChatTransport() {
-  if (orbitRuntimeConfig.chatTransportMode === "mock") {
+  if (appConfig.chatTransportMode === "mock") {
     return createMockChatTransport();
   }
 
+  if (appConfig.chatTransportMode === "http") {
+    return createHttpChatTransport();
+  }
+
   return createSocketChatTransport({
-    url: orbitRuntimeConfig.chatSocketUrl,
-    path: orbitRuntimeConfig.chatSocketPath,
-    namespace: orbitRuntimeConfig.chatSocketNamespace,
-    sendEvent: orbitRuntimeConfig.chatSendEvent,
-    messageEvent: orbitRuntimeConfig.chatMessageEvent,
-    ackTimeoutMs: orbitRuntimeConfig.chatAckTimeoutMs,
+    url: appConfig.socketUrl,
+    path: appConfig.chatSocketPath,
+    namespace: appConfig.chatSocketNamespace,
+    sendEvent: appConfig.chatSendEvent,
+    messageEvent: appConfig.chatMessageEvent,
+    ackTimeoutMs: appConfig.chatAckTimeoutMs,
   });
 }
 
 export function useChat(options: UseChatOptions = {}): UseChatResult {
   const { user } = useAuth();
-  const [activeChannelId, setActiveChannelId] = useState<string>("channel_general");
+  const isExternalTransport = Boolean(options.transport);
+  const usesSeedData = isExternalTransport || appConfig.chatTransportMode === "mock";
+  const [channels, setChannels] = useState<Channel[]>(() =>
+    usesSeedData ? mockChannels : [],
+  );
+  const [activeChannelId, setActiveChannelId] = useState<string>(
+    options.preferredChannelId ?? (usesSeedData ? "channel_general" : ""),
+  );
   const [draft, setDraft] = useState("");
   const [connectionStatus, setConnectionStatus] =
     useState<ChatConnectionStatus>("disconnected");
   const [messagesByChannel, setMessagesByChannel] = useState<MessagesByChannel>(() =>
-    createInitialMessagesByChannel(mockMessages),
+    createInitialMessagesByChannel(usesSeedData ? mockMessages : []),
   );
   const transport = useMemo(
     () => options.transport ?? createDefaultChatTransport(),
@@ -202,14 +217,61 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
   );
 
   const activeChannel = useMemo(
-    () => mockChannels.find((channel) => channel.id === activeChannelId),
-    [activeChannelId],
+    () => channels.find((channel) => channel.id === activeChannelId),
+    [activeChannelId, channels],
   );
 
   const messages = useMemo(
     () => messagesByChannel[activeChannelId] ?? [],
     [activeChannelId, messagesByChannel],
   );
+
+  useEffect(() => {
+    if (usesSeedData) {
+      return;
+    }
+
+    let isMounted = true;
+
+    void listGroups()
+      .then((groupList) => {
+        if (!isMounted) {
+          return;
+        }
+
+        const nextChannels = groupList.map<Channel>((group) => ({
+          id: group.id,
+          name: group.name.toLowerCase().replace(/\s+/g, "-"),
+          kind: "channel",
+        }));
+
+        setChannels(nextChannels);
+        setActiveChannelId((currentChannelId) => {
+          if (
+            options.preferredChannelId &&
+            nextChannels.some((channel) => channel.id === options.preferredChannelId)
+          ) {
+            return options.preferredChannelId;
+          }
+
+          if (currentChannelId && nextChannels.some((channel) => channel.id === currentChannelId)) {
+            return currentChannelId;
+          }
+
+          return nextChannels[0]?.id ?? "";
+        });
+      })
+      .catch(() => {
+        if (isMounted) {
+          setChannels([]);
+          setConnectionStatus("disconnected");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [options.preferredChannelId, usesSeedData]);
 
   useEffect(() => {
     const unsubscribeConnection = transport.subscribeToConnectionStatus(
@@ -228,6 +290,98 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
       transport.disconnect();
     };
   }, [transport]);
+
+  useEffect(() => {
+    if (usesSeedData || !activeChannelId) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const syncMessages = async () => {
+      try {
+        const payload = await httpClient.get<
+          Array<{
+            id: string;
+            sender_id: string;
+            group_id?: string | null;
+            message: string;
+            created_at: string;
+          }>
+        >(`/chats?group_id=${encodeURIComponent(activeChannelId)}`);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setMessagesByChannel((currentMessages) => ({
+          ...currentMessages,
+          [activeChannelId]: payload.map((message) => ({
+            id: message.id,
+            clientMessageId: message.id,
+            serverMessageId: message.id,
+            channelId: message.group_id ?? activeChannelId,
+            userId: message.sender_id,
+            username: message.sender_id === user?.id ? user.name : "Orbit Member",
+            avatarFallback:
+              message.sender_id === user?.id ? user.avatarFallback : "OM",
+            content: message.message,
+            createdAt: message.created_at,
+            type: "text",
+            status: "sent",
+            canRetry: false,
+          })),
+        }));
+        setConnectionStatus("connected");
+      } catch {
+        if (isMounted) {
+          setConnectionStatus("disconnected");
+        }
+      }
+    };
+
+    void syncMessages();
+    const intervalId = window.setInterval(() => {
+      void syncMessages();
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, [activeChannelId, user?.avatarFallback, user?.id, user?.name, usesSeedData]);
+
+  const members = useMemo<Member[]>(() => {
+    if (usesSeedData) {
+      return mockMembers;
+    }
+
+    const byUserId = new Map<string, Member>();
+
+    if (user) {
+      byUserId.set(user.id, {
+        id: user.id,
+        name: user.name,
+        avatarFallback: user.avatarFallback,
+        status: "online",
+        role: "Member",
+      });
+    }
+
+    messages.forEach((message) => {
+      if (!byUserId.has(message.userId)) {
+        byUserId.set(message.userId, {
+          id: message.userId,
+          name: message.username,
+          avatarFallback: message.avatarFallback,
+          status: "offline",
+          role: "Member",
+        });
+      }
+    });
+
+    return [...byUserId.values()];
+  }, [messages, user, usesSeedData]);
 
   function sendMessage() {
     const content = draft.trim();
@@ -289,12 +443,12 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
   }
 
   return {
-    channels: mockChannels,
+    channels,
     activeChannelId,
     setActiveChannelId,
     activeChannel,
     messages,
-    members: mockMembers,
+    members,
     connectionStatus,
     sendMessage,
     draft,

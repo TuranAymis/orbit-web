@@ -12,10 +12,13 @@ interface EventListResponseItem {
   coverImageUrl?: string;
   startsAt?: string;
   endsAt?: string;
+  start_time?: string;
+  end_time?: string;
   location?: string;
   attendeeCount?: number;
   isJoined?: boolean;
   category?: string;
+  group_id?: string;
 }
 
 interface EventDetailResponse extends EventListResponseItem {
@@ -32,8 +35,8 @@ function mapEventBase(response: EventListResponseItem): EventListItem {
     coverImageUrl:
       response.coverImageUrl ??
       "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
-    startsAt: response.startsAt ?? new Date().toISOString(),
-    endsAt: response.endsAt ?? new Date().toISOString(),
+    startsAt: response.startsAt ?? response.start_time ?? new Date().toISOString(),
+    endsAt: response.endsAt ?? response.end_time ?? new Date().toISOString(),
     location: response.location ?? "Orbit Room",
     attendeeCount: response.attendeeCount ?? 0,
     isJoined: response.isJoined ?? false,
@@ -60,7 +63,13 @@ export function mapEventDetailResponse(
           description:
             response.relatedGroup.description ?? "Community context unavailable.",
         }
-      : null,
+      : response.group_id
+        ? {
+            id: response.group_id,
+            name: "Orbit Group",
+            description: "Community context unavailable.",
+          }
+        : null,
     participantsPreview:
       response.participantsPreview?.map((participant, index) => ({
         id: participant.id ?? `participant_${index}`,

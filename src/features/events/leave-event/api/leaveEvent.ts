@@ -1,14 +1,5 @@
-import { orbitRuntimeConfig } from "@/config/env";
-
 export async function leaveEvent(eventId: string) {
-  const response = await fetch(
-    `${orbitRuntimeConfig.apiBaseUrl}/events/${encodeURIComponent(eventId)}/leave`,
-    {
-      method: "POST",
-    },
+  throw new Error(
+    `Leaving events is not supported by the local backend yet for event ${eventId}.`,
   );
-
-  if (!response.ok) {
-    throw new Error("Failed to leave event.");
-  }
 }

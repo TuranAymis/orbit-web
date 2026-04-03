@@ -1,4 +1,5 @@
 import type {
+  Group,
   GroupDetail,
   GroupEventPreview,
   GroupGalleryItem,
@@ -6,12 +7,18 @@ import type {
   GroupStatSummary,
 } from "@/entities/group/model/types";
 
-interface GroupDetailResponse {
+interface GroupListResponseItem {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
+  imageUrl?: string;
   coverImageUrl?: string;
   memberCount?: number;
+}
+
+interface GroupDetailResponse extends GroupListResponseItem {
+  id: string;
+  name: string;
   isJoined?: boolean;
   category?: string;
   location?: string;
@@ -22,6 +29,19 @@ interface GroupDetailResponse {
   memberPreview?: Array<Partial<GroupMemberPreview>>;
 }
 
+const fallbackGroupImage =
+  "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80";
+
+export function mapGroupListResponse(response: GroupListResponseItem[]): Group[] {
+  return response.map((group, index) => ({
+    id: group.id ?? `group_${index}`,
+    name: group.name ?? "Orbit Group",
+    description: group.description ?? "No group description available yet.",
+    memberCount: group.memberCount ?? 0,
+    imageUrl: group.imageUrl ?? group.coverImageUrl ?? fallbackGroupImage,
+  }));
+}
+
 export function mapGroupDetailResponse(
   response: GroupDetailResponse,
 ): GroupDetail {
@@ -29,9 +49,7 @@ export function mapGroupDetailResponse(
     id: response.id,
     name: response.name,
     description: response.description ?? "No description available yet.",
-    coverImageUrl:
-      response.coverImageUrl ??
-      "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+    coverImageUrl: response.coverImageUrl ?? response.imageUrl ?? fallbackGroupImage,
     memberCount: response.memberCount ?? 0,
     isJoined: response.isJoined ?? false,
     category: response.category ?? "Community",

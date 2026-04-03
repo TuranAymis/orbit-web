@@ -1,14 +1,5 @@
-import { orbitRuntimeConfig } from "@/config/env";
+import { httpClient } from "@/shared/lib/http/httpClient";
 
 export async function joinGroup(groupId: string) {
-  const response = await fetch(
-    `${orbitRuntimeConfig.apiBaseUrl}/groups/${encodeURIComponent(groupId)}/join`,
-    {
-      method: "POST",
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to join group.");
-  }
+  await httpClient.post(`/groups/${encodeURIComponent(groupId)}/members`, {});
 }

@@ -5,6 +5,10 @@ import { PageContainer } from "@/shared/ui/page-container";
 import { ChatLayout } from "@/widgets/chat/ChatLayout";
 
 export function ChatPage() {
+  const searchParams =
+    typeof window === "undefined"
+      ? new URLSearchParams()
+      : new URLSearchParams(window.location.search);
   const {
     channels,
     activeChannelId,
@@ -16,7 +20,9 @@ export function ChatPage() {
     sendMessage,
     draft,
     setDraft,
-  } = useChat();
+  } = useChat({
+    preferredChannelId: searchParams.get("groupId"),
+  });
 
   return (
     <PageContainer
