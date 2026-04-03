@@ -1,7 +1,19 @@
+import { createElement } from "react";
 import { renderHook, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AppProviders } from "@/app/providers/AppProviders";
 import { useDiscoverFeed } from "@/features/discover/get-discover-feed/model/useDiscoverFeed";
 import * as discoverApi from "@/features/discover/get-discover-feed/api/getDiscoverFeed";
+import { createOrbitQueryClient } from "@/shared/lib/query/query-client";
+
+function createWrapper() {
+  const queryClient = createOrbitQueryClient();
+
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return createElement(AppProviders, { queryClient }, children);
+  };
+}
 
 describe("useDiscoverFeed", () => {
   beforeEach(() => {
@@ -44,7 +56,9 @@ describe("useDiscoverFeed", () => {
       ],
     });
 
-    const { result } = renderHook(() => useDiscoverFeed());
+    const { result } = renderHook(() => useDiscoverFeed(), {
+      wrapper: createWrapper(),
+    });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);

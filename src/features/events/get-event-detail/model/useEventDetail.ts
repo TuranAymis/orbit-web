@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { EventDetail } from "@/entities/event/model/types";
 import { getEventDetail } from "@/features/events/get-event-detail/api/getEventDetail";
 import { joinEvent } from "@/features/events/join-event/api/joinEvent";
 import { leaveEvent } from "@/features/events/leave-event/api/leaveEvent";
+import type { EventListItem } from "@/entities/event/model/types";
+import type { DiscoverFeed } from "@/features/discover/get-discover-feed/mappers/discoverMapper";
+import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 
 interface UseEventDetailResult {
   data: EventDetail | null;
@@ -14,70 +17,153 @@ interface UseEventDetailResult {
 }
 
 export function useEventDetail(eventId?: string): UseEventDetailResult {
-  const [data, setData] = useState<EventDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [isMutatingAttendance, setIsMutatingAttendance] = useState(false);
+  const queryClient = useQueryClient();
+  const missingEventIdError = eventId ? null : new Error("Missing event id.");
+  const query = useQuery({
+    queryKey: eventId ? orbitQueryKeys.events.detail(eventId) : orbitQueryKeys.events.detail("missing"),
+    queryFn: () => getEventDetail(eventId as string),
+    enabled: Boolean(eventId),
+  });
 
-  const loadEvent = useCallback(async () => {
-    if (!eventId) {
-      setData(null);
-      setIsLoading(false);
-      setError(new Error("Missing event id."));
-      return;
-    }
+  const data = query.data ?? null;
+  const mutation = useMutation({
+    mutationFn: async (nextJoinedState: boolean) => {
+      if (!eventId) {
+        throw new Error("Missing event id.");
+      }
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const nextEvent = await getEventDetail(eventId);
-      setData(nextEvent);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError : new Error("Failed to load event."));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [eventId]);
-
-  useEffect(() => {
-    void loadEvent();
-  }, [loadEvent]);
-
-  const toggleAttendance = useCallback(async () => {
-    if (!eventId || !data) {
-      return;
-    }
-
-    setIsMutatingAttendance(true);
-
-    try {
-      if (data.isJoined) {
-        await leaveEvent(eventId);
-        setData({
-          ...data,
-          isJoined: false,
-          attendeeCount: Math.max(0, data.attendeeCount - 1),
-        });
-      } else {
+      if (nextJoinedState) {
         await joinEvent(eventId);
-        setData({
-          ...data,
-          isJoined: true,
-          attendeeCount: data.attendeeCount + 1,
+        return true;
+      }
+
+      await leaveEvent(eventId);
+      return false;
+    },
+    onMutate: async (nextJoinedState) => {
+      if (!eventId) {
+        return { previousEvent: null, previousEvents: null, previousDiscover: null };
+      }
+
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: orbitQueryKeys.events.detail(eventId) }),
+        queryClient.cancelQueries({ queryKey: orbitQueryKeys.events.all }),
+        queryClient.cancelQueries({ queryKey: orbitQueryKeys.discover.feed }),
+      ]);
+
+      const previousEvent = queryClient.getQueryData<EventDetail>(
+        orbitQueryKeys.events.detail(eventId),
+      );
+      const previousEvents = queryClient.getQueryData<EventListItem[]>(
+        orbitQueryKeys.events.all,
+      );
+      const previousDiscover = queryClient.getQueryData<DiscoverFeed>(
+        orbitQueryKeys.discover.feed,
+      );
+
+      if (previousEvent) {
+        queryClient.setQueryData<EventDetail>(orbitQueryKeys.events.detail(eventId), {
+          ...previousEvent,
+          isJoined: nextJoinedState,
+          attendeeCount: nextJoinedState
+            ? previousEvent.attendeeCount + 1
+            : Math.max(0, previousEvent.attendeeCount - 1),
         });
       }
-    } finally {
-      setIsMutatingAttendance(false);
-    }
-  }, [data, eventId]);
+
+      if (previousEvents) {
+        queryClient.setQueryData<EventListItem[]>(
+          orbitQueryKeys.events.all,
+          previousEvents.map((event) =>
+            event.id === eventId
+              ? {
+                  ...event,
+                  isJoined: nextJoinedState,
+                  attendeeCount: nextJoinedState
+                    ? event.attendeeCount + 1
+                    : Math.max(0, event.attendeeCount - 1),
+                }
+              : event,
+          ),
+        );
+      }
+
+      if (previousDiscover) {
+        queryClient.setQueryData<DiscoverFeed>(orbitQueryKeys.discover.feed, {
+          ...previousDiscover,
+          events: previousDiscover.events.map((event) =>
+            event.id === eventId
+              ? {
+                  ...event,
+                  isJoined: nextJoinedState,
+                  attendeeCount: nextJoinedState
+                    ? event.attendeeCount + 1
+                    : Math.max(0, event.attendeeCount - 1),
+                }
+              : event,
+          ),
+        });
+      }
+
+      return { previousEvent, previousEvents, previousDiscover };
+    },
+    onError: (_error, _nextJoinedState, context) => {
+      if (!eventId) {
+        return;
+      }
+
+      if (context?.previousEvent) {
+        queryClient.setQueryData(orbitQueryKeys.events.detail(eventId), context.previousEvent);
+      }
+
+      if (context?.previousEvents) {
+        queryClient.setQueryData(orbitQueryKeys.events.all, context.previousEvents);
+      }
+
+      if (context?.previousDiscover) {
+        queryClient.setQueryData(orbitQueryKeys.discover.feed, context.previousDiscover);
+      }
+    },
+    onSettled: async () => {
+      if (!eventId) {
+        return;
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: orbitQueryKeys.events.detail(eventId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: orbitQueryKeys.events.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: orbitQueryKeys.discover.feed,
+        }),
+      ]);
+    },
+  });
+
+  const error =
+    missingEventIdError ?? (query.error instanceof Error ? query.error : null);
 
   return {
     data,
-    isLoading,
+    isLoading: eventId ? query.isLoading : false,
     error,
-    refetch: loadEvent,
-    toggleAttendance,
-    isMutatingAttendance,
+    refetch: async () => {
+      if (!eventId) {
+        return;
+      }
+
+      await query.refetch();
+    },
+    toggleAttendance: async () => {
+      if (!eventId || !data) {
+        return;
+      }
+
+      await mutation.mutateAsync(!data.isJoined);
+    },
+    isMutatingAttendance: mutation.isPending,
   };
 }

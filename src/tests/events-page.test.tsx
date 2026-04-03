@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AppProviders } from "@/app/providers/AppProviders";
 import { EventsPage } from "@/pages/events/EventsPage";
 import * as listEventsApi from "@/features/events/list-events/api/listEvents";
 
@@ -24,9 +25,11 @@ const eventsPayload = [
 
 function renderEventsPage() {
   return render(
-    <MemoryRouter>
-      <EventsPage />
-    </MemoryRouter>,
+    <AppProviders>
+      <MemoryRouter>
+        <EventsPage />
+      </MemoryRouter>
+    </AppProviders>,
   );
 }
 
