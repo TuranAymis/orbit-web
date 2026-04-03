@@ -5,6 +5,8 @@ import type { Message } from "@/entities/message/model/types";
 
 const message: Message = {
   id: "msg_1",
+  clientMessageId: "client_msg_1",
+  serverMessageId: "msg_1",
   channelId: "channel_general",
   userId: "user_demo",
   username: "Demo Orbit",
@@ -25,5 +27,6 @@ describe("MessageItem", () => {
       screen.getByText(/pushed the latest shell refactor and everything is looking clean/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/09:30/i)).toBeInTheDocument();
+    expect(screen.getByText(/sent/i)).toBeInTheDocument();
   });
 });

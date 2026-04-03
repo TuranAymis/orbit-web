@@ -22,21 +22,32 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 function createTestTransport(): ChatTransport {
-  let listener: ((message: Message) => void) | null = null;
+  const listeners = new Set<(message: Message) => void>();
 
   return {
     sendMessage(message) {
       return new Promise((resolve) => {
         window.setTimeout(() => {
-          resolve({ ...message, status: "sent" });
+          resolve({
+            clientMessageId: message.clientMessageId,
+            message: {
+              ...message,
+              id: `srv_${message.clientMessageId}`,
+              serverMessageId: `srv_${message.clientMessageId}`,
+              status: "sent",
+              canRetry: false,
+            },
+          });
         }, 200);
       });
     },
     subscribeToMessages(callback) {
-      listener = callback;
+      listeners.add(callback);
       window.setTimeout(() => {
-        listener?.({
+        callback({
           id: "msg_incoming_test",
+          clientMessageId: "incoming_test",
+          serverMessageId: "srv_incoming_test",
           channelId: "channel_general",
           userId: "user_annie",
           username: "Annie Case",
@@ -47,9 +58,10 @@ function createTestTransport(): ChatTransport {
           status: "sent",
         });
       }, 400);
-    },
-    unsubscribe() {
-      listener = null;
+
+      return () => {
+        listeners.delete(callback);
+      };
     },
   };
 }

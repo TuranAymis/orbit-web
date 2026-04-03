@@ -9,6 +9,8 @@ interface MockChatTransportOptions {
 const incomingMessages: Message[] = [
   {
     id: "msg_incoming_general_1",
+    clientMessageId: "incoming_general_1",
+    serverMessageId: "srv_incoming_general_1",
     channelId: "channel_general",
     userId: "user_annie",
     username: "Annie Case",
@@ -25,8 +27,21 @@ export function createMockChatTransport(
 ): ChatTransport {
   const outgoingDelayMs = options.outgoingDelayMs ?? 320;
   const incomingDelayMs = options.incomingDelayMs ?? 1800;
-  let listener: ((message: Message) => void) | null = null;
+  const listeners = new Set<(message: Message) => void>();
   let incomingTimer: number | null = null;
+
+  function ensureIncomingSimulation() {
+    if (incomingTimer !== null || listeners.size === 0) {
+      return;
+    }
+
+    incomingTimer = window.setTimeout(() => {
+      incomingMessages.forEach((message) => {
+        listeners.forEach((listener) => listener(message));
+      });
+      incomingTimer = null;
+    }, incomingDelayMs);
+  }
 
   return {
     async sendMessage(message) {
@@ -35,30 +50,28 @@ export function createMockChatTransport(
       });
 
       return {
-        ...message,
-        status: "sent",
+        clientMessageId: message.clientMessageId,
+        message: {
+          ...message,
+          id: `srv_${message.clientMessageId}`,
+          serverMessageId: `srv_${message.clientMessageId}`,
+          status: "sent",
+          canRetry: false,
+        },
       };
     },
     subscribeToMessages(callback) {
-      listener = callback;
+      listeners.add(callback);
+      ensureIncomingSimulation();
 
-      if (incomingTimer !== null) {
-        window.clearTimeout(incomingTimer);
-      }
+      return () => {
+        listeners.delete(callback);
 
-      incomingTimer = window.setTimeout(() => {
-        if (listener) {
-          listener(incomingMessages[0]);
+        if (listeners.size === 0 && incomingTimer !== null) {
+          window.clearTimeout(incomingTimer);
+          incomingTimer = null;
         }
-      }, incomingDelayMs);
-    },
-    unsubscribe() {
-      listener = null;
-
-      if (incomingTimer !== null) {
-        window.clearTimeout(incomingTimer);
-        incomingTimer = null;
-      }
+      };
     },
   };
 }

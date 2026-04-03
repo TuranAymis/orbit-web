@@ -23,6 +23,8 @@ const mockMembers: Member[] = [
 const mockMessages: Message[] = [
   {
     id: "msg_general_1",
+    clientMessageId: "seed_general_1",
+    serverMessageId: "msg_general_1",
     channelId: "channel_general",
     userId: "user_annie",
     username: "Annie Case",
@@ -34,6 +36,8 @@ const mockMessages: Message[] = [
   },
   {
     id: "msg_general_2",
+    clientMessageId: "seed_general_2",
+    serverMessageId: "msg_general_2",
     channelId: "channel_general",
     userId: "system",
     username: "Orbit System",
@@ -45,6 +49,8 @@ const mockMessages: Message[] = [
   },
   {
     id: "msg_general_3",
+    clientMessageId: "seed_general_3",
+    serverMessageId: "msg_general_3",
     channelId: "channel_general",
     userId: "user_eli",
     username: "Eli Turner",
@@ -56,6 +62,8 @@ const mockMessages: Message[] = [
   },
   {
     id: "msg_product_1",
+    clientMessageId: "seed_product_1",
+    serverMessageId: "msg_product_1",
     channelId: "channel_product",
     userId: "user_demo_orbit",
     username: "Demo Orbit",
@@ -67,6 +75,8 @@ const mockMessages: Message[] = [
   },
   {
     id: "msg_release_1",
+    clientMessageId: "seed_release_1",
+    serverMessageId: "msg_release_1",
     channelId: "dm_release_squad",
     userId: "user_annie",
     username: "Annie Case",
@@ -78,6 +88,8 @@ const mockMessages: Message[] = [
   },
   {
     id: "msg_annie_1",
+    clientMessageId: "seed_annie_1",
+    serverMessageId: "msg_annie_1",
     channelId: "dm_annie_case",
     userId: "user_annie",
     username: "Annie Case",
@@ -88,6 +100,53 @@ const mockMessages: Message[] = [
     status: "sent",
   },
 ];
+
+type MessagesByChannel = Record<string, Message[]>;
+
+function createInitialMessagesByChannel(messages: Message[]): MessagesByChannel {
+  return messages.reduce<MessagesByChannel>((accumulator, message) => {
+    accumulator[message.channelId] = [...(accumulator[message.channelId] ?? []), message];
+    return accumulator;
+  }, {});
+}
+
+function appendMessage(
+  messageMap: MessagesByChannel,
+  message: Message,
+): MessagesByChannel {
+  const channelMessages = messageMap[message.channelId] ?? [];
+
+  if (
+    channelMessages.some(
+      (existingMessage) =>
+        existingMessage.clientMessageId === message.clientMessageId ||
+        (message.serverMessageId &&
+          existingMessage.serverMessageId === message.serverMessageId),
+    )
+  ) {
+    return messageMap;
+  }
+
+  return {
+    ...messageMap,
+    [message.channelId]: [...channelMessages, message],
+  };
+}
+
+function reconcileMessage(
+  messageMap: MessagesByChannel,
+  clientMessageId: string,
+  updater: (message: Message) => Message,
+): MessagesByChannel {
+  const nextEntries = Object.entries(messageMap).map(([channelId, messages]) => [
+    channelId,
+    messages.map((message) =>
+      message.clientMessageId === clientMessageId ? updater(message) : message,
+    ),
+  ]);
+
+  return Object.fromEntries(nextEntries);
+}
 
 interface UseChatResult {
   channels: Channel[];
@@ -110,7 +169,9 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
   const { user } = useAuth();
   const [activeChannelId, setActiveChannelId] = useState<string>("channel_general");
   const [draft, setDraft] = useState("");
-  const [allMessages, setAllMessages] = useState<Message[]>(mockMessages);
+  const [messagesByChannel, setMessagesByChannel] = useState<MessagesByChannel>(() =>
+    createInitialMessagesByChannel(mockMessages),
+  );
   const transport = useMemo(
     () => options.transport ?? createMockChatTransport(),
     [options.transport],
@@ -122,23 +183,19 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
   );
 
   const messages = useMemo(
-    () => allMessages.filter((message) => message.channelId === activeChannelId),
-    [activeChannelId, allMessages],
+    () => messagesByChannel[activeChannelId] ?? [],
+    [activeChannelId, messagesByChannel],
   );
 
   useEffect(() => {
-    transport.subscribeToMessages((incomingMessage) => {
-      setAllMessages((currentMessages) => {
-        if (currentMessages.some((message) => message.id === incomingMessage.id)) {
-          return currentMessages;
-        }
-
-        return [...currentMessages, incomingMessage];
-      });
+    const unsubscribe = transport.subscribeToMessages((incomingMessage) => {
+      setMessagesByChannel((currentMessages) =>
+        appendMessage(currentMessages, incomingMessage),
+      );
     });
 
     return () => {
-      transport.unsubscribe();
+      unsubscribe();
     };
   }, [transport]);
 
@@ -149,8 +206,10 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
       return;
     }
 
+    const clientMessageId = `client_${activeChannel.id}_${Date.now()}`;
     const nextMessage: Message = {
-      id: `msg_${activeChannel.id}_${Date.now()}`,
+      id: clientMessageId,
+      clientMessageId,
       channelId: activeChannel.id,
       userId: user.id,
       username: user.name,
@@ -159,25 +218,32 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
       createdAt: new Date().toISOString(),
       type: "text",
       status: "sending",
+      canRetry: false,
     };
 
-    setAllMessages((currentMessages) => [...currentMessages, nextMessage]);
+    setMessagesByChannel((currentMessages) =>
+      appendMessage(currentMessages, nextMessage),
+    );
     setDraft("");
 
     void transport
       .sendMessage(nextMessage)
-      .then((sentMessage) => {
-        setAllMessages((currentMessages) =>
-          currentMessages.map((message) =>
-            message.id === nextMessage.id ? { ...message, ...sentMessage, status: "sent" } : message,
-          ),
+      .then(({ clientMessageId: acknowledgedClientId, message: sentMessage }) => {
+        setMessagesByChannel((currentMessages) =>
+          reconcileMessage(currentMessages, acknowledgedClientId, () => ({
+            ...sentMessage,
+            status: "sent",
+            canRetry: false,
+          })),
         );
       })
       .catch(() => {
-        setAllMessages((currentMessages) =>
-          currentMessages.map((message) =>
-            message.id === nextMessage.id ? { ...message, status: "failed" } : message,
-          ),
+        setMessagesByChannel((currentMessages) =>
+          reconcileMessage(currentMessages, nextMessage.clientMessageId, (message) => ({
+            ...message,
+            status: "failed",
+            canRetry: true,
+          })),
         );
       });
   }

@@ -6,6 +6,8 @@ import type { Message } from "@/entities/message/model/types";
 const messages: Message[] = [
   {
     id: "msg_1",
+    clientMessageId: "client_msg_1",
+    serverMessageId: "msg_1",
     channelId: "channel_general",
     userId: "user_demo",
     username: "Demo Orbit",
@@ -17,6 +19,8 @@ const messages: Message[] = [
   },
   {
     id: "msg_2",
+    clientMessageId: "client_msg_2",
+    serverMessageId: "msg_2",
     channelId: "channel_general",
     userId: "system",
     username: "Orbit System",
