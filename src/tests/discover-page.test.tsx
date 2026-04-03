@@ -1,83 +1,157 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DiscoverPage } from "@/pages/discover/DiscoverPage";
 import type { Group } from "@/entities/group/model/types";
-import * as useGroupsModule from "@/features/groups/list-groups/model/useGroups";
+import type { EventListItem } from "@/entities/event/model/types";
+import * as useDiscoverFeedModule from "@/features/discover/get-discover-feed/model/useDiscoverFeed";
 
 const mockGroups: Group[] = [
   {
-    id: "grp_frontend",
+    id: "frontend-forge",
     name: "Frontend Forge",
-    description: "Craft fast interfaces with modern React, TypeScript, and motion systems.",
+    description: "Craft fast interfaces with React, TypeScript, and a strong design system practice.",
     memberCount: 9840,
     imageUrl:
       "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
   },
+];
+
+const mockEvents: EventListItem[] = [
   {
-    id: "grp_cloud",
-    name: "Cloud Native Crew",
-    description: "Trade notes on observability, containers, and platform engineering.",
-    memberCount: 11450,
-    imageUrl:
-      "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80",
+    id: "design-systems-review",
+    title: "Design Systems Review",
+    description: "Review component APIs, token changes, and release notes.",
+    coverImageUrl:
+      "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+    startsAt: "2026-04-08T18:00:00.000Z",
+    endsAt: "2026-04-08T19:00:00.000Z",
+    location: "Orbit Live Room",
+    attendeeCount: 184,
+    isJoined: true,
+    category: "Workshop",
   },
 ];
+
+const mockTrending = [
+  {
+    id: "trend_frontend-forge",
+    title: "Frontend Forge is trending",
+    description: "Strong member growth and steady event participation this week.",
+    metricLabel: "Momentum",
+    metricValue: "High",
+  },
+];
+
+function renderDiscoverPage() {
+  return render(
+    <MemoryRouter>
+      <DiscoverPage />
+    </MemoryRouter>,
+  );
+}
 
 describe("DiscoverPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("renders groups from the list hook", () => {
-    vi.spyOn(useGroupsModule, "useGroups").mockReturnValue({
-      data: mockGroups,
+  it("renders real feed data in the groups tab", () => {
+    vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
+      groups: mockGroups,
+      events: mockEvents,
+      trending: mockTrending,
       isLoading: false,
+      error: null,
       isEmpty: false,
+      refetch: vi.fn(),
     });
 
-    render(<DiscoverPage />);
+    renderDiscoverPage();
 
     expect(screen.getByRole("heading", { name: /discover communities/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /groups/i })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
     expect(screen.getByText(/frontend forge/i)).toBeInTheDocument();
-    expect(screen.getByText(/cloud native crew/i)).toBeInTheDocument();
   });
 
-  it("switches the active tab in the UI", async () => {
-    vi.spyOn(useGroupsModule, "useGroups").mockReturnValue({
-      data: mockGroups,
+  it("switches to the events tab and renders event cards", async () => {
+    vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
+      groups: mockGroups,
+      events: mockEvents,
+      trending: mockTrending,
       isLoading: false,
+      error: null,
       isEmpty: false,
+      refetch: vi.fn(),
     });
 
     const user = userEvent.setup();
-    render(<DiscoverPage />);
+    renderDiscoverPage();
 
-    await user.click(screen.getByRole("tab", { name: /trending/i }));
+    await user.click(screen.getByRole("tab", { name: /events/i }));
 
-    expect(screen.getByRole("tab", { name: /trending/i })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: /events/i })).toHaveAttribute(
       "aria-selected",
       "true",
     );
-    expect(screen.getByRole("tab", { name: /groups/i })).toHaveAttribute(
-      "aria-selected",
-      "false",
-    );
+    expect(screen.getByText(/design systems review/i)).toBeInTheDocument();
   });
 
-  it("shows an empty state when the hook returns no groups", () => {
-    vi.spyOn(useGroupsModule, "useGroups").mockReturnValue({
-      data: [],
+  it("switches to the trending tab and renders normalized trending data", async () => {
+    vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
+      groups: mockGroups,
+      events: mockEvents,
+      trending: mockTrending,
       isLoading: false,
-      isEmpty: true,
+      error: null,
+      isEmpty: false,
+      refetch: vi.fn(),
     });
 
-    render(<DiscoverPage />);
+    const user = userEvent.setup();
+    renderDiscoverPage();
 
-    expect(screen.getByText(/no groups found yet/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: /trending/i }));
+
+    expect(screen.getByText(/frontend forge is trending/i)).toBeInTheDocument();
+    expect(screen.getByText(/momentum/i)).toBeInTheDocument();
+  });
+
+  it("renders loading state while the discover feed is fetching", () => {
+    vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
+      groups: [],
+      events: [],
+      trending: [],
+      isLoading: true,
+      error: null,
+      isEmpty: false,
+      refetch: vi.fn(),
+    });
+
+    renderDiscoverPage();
+
+    expect(screen.getByTestId("discover-loading")).toBeInTheDocument();
+  });
+
+  it("renders an error state with retry", async () => {
+    const refetch = vi.fn();
+    vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
+      groups: [],
+      events: [],
+      trending: [],
+      isLoading: false,
+      error: new Error("Network error"),
+      isEmpty: false,
+      refetch,
+    });
+
+    const user = userEvent.setup();
+    renderDiscoverPage();
+
+    expect(screen.getByText(/we couldn't load discover right now/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /retry/i }));
+
+    expect(refetch).toHaveBeenCalled();
   });
 });

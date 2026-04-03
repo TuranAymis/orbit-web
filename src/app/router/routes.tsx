@@ -9,6 +9,7 @@ import { GroupsPage } from "@/pages/groups/GroupsPage";
 import { GroupDetailPage } from "@/pages/groups/GroupDetailPage";
 import { ChatPage } from "@/pages/chat/ChatPage";
 import { EventsPage } from "@/pages/events/EventsPage";
+import { EventDetailPage } from "@/pages/events/EventDetailPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { MembershipPage } from "@/pages/membership/MembershipPage";
 
@@ -52,6 +53,10 @@ export const routes: RouteObject[] = [
           {
             path: "events",
             element: <EventsPage />,
+          },
+          {
+            path: "events/:eventId",
+            element: <EventDetailPage />,
           },
           {
             path: "settings",
