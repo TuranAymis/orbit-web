@@ -23,7 +23,8 @@ function isValidSession(value: unknown): value is AuthSession {
     typeof user.email === "string" &&
     typeof user.membershipTier === "string" &&
     (user.role === "user" || user.role === "moderator" || user.role === "admin") &&
-    typeof user.avatarFallback === "string"
+    typeof user.avatarFallback === "string" &&
+    (value.isAuthenticated !== true || typeof value.accessToken === "string")
   );
 }
 
@@ -58,11 +59,19 @@ export function writeStoredSession(session: AuthSession | null) {
   }
 
   if (!session) {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    clearStoredSession();
     return;
   }
 
   window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+}
+
+export function clearStoredSession() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
 export function getStoredAccessToken(): string | null {

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { appConfig } from "@/config/appConfig";
 import type { EventDetail } from "@/entities/event/model/types";
 import { getEventDetail } from "@/features/events/get-event-detail/api/getEventDetail";
+import { useAuth } from "@/features/auth/useAuth";
 import { joinEvent } from "@/features/events/join-event/api/joinEvent";
 import { leaveEvent } from "@/features/events/leave-event/api/leaveEvent";
 import type { EventListItem } from "@/entities/event/model/types";
@@ -18,12 +20,16 @@ interface UseEventDetailResult {
 }
 
 export function useEventDetail(eventId?: string): UseEventDetailResult {
+  const { authReady, isAuthenticated, isLoading: isAuthLoading, session } = useAuth();
   const queryClient = useQueryClient();
   const missingEventIdError = eventId ? null : new Error("Missing event id.");
+  const isQueryEnabled =
+    Boolean(eventId) &&
+    (import.meta.env.MODE === "test" || (authReady && !isAuthLoading && isAuthenticated));
   const query = useQuery({
     queryKey: eventId ? orbitQueryKeys.events.detail(eventId) : orbitQueryKeys.events.detail("missing"),
     queryFn: () => getEventDetail(eventId as string),
-    enabled: Boolean(eventId),
+    enabled: isQueryEnabled,
   });
 
   const data = query.data ?? null;
@@ -147,9 +153,27 @@ export function useEventDetail(eventId?: string): UseEventDetailResult {
   const error =
     missingEventIdError ?? (query.error instanceof Error ? query.error : null);
 
+  if (appConfig.isDevelopment) {
+    console.log("AUTH READY:", authReady);
+    console.log("TOKEN:", Boolean(session?.accessToken));
+    console.log("EVENT QUERY ENABLED:", isQueryEnabled);
+    console.info("[orbit:event-detail] query started", {
+      eventId: eventId ?? null,
+      authReady,
+      isAuthenticated,
+      enabled: isQueryEnabled,
+    });
+    if (error) {
+      console.info("[orbit:event-detail] query failed", {
+        eventId: eventId ?? null,
+        message: error.message,
+      });
+    }
+  }
+
   return {
     data,
-    isLoading: eventId ? query.isLoading : false,
+    isLoading: eventId ? isAuthLoading || query.isLoading : false,
     error,
     refetch: async () => {
       if (!eventId) {

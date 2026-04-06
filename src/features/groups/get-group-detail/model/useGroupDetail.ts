@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { appConfig } from "@/config/appConfig";
 import type { GroupDetail } from "@/entities/group/model/types";
+import { useAuth } from "@/features/auth/useAuth";
 import { getGroupDetail } from "@/features/groups/get-group-detail/api/getGroupDetail";
 import { joinGroup } from "@/features/groups/join-group/api/joinGroup";
 import { leaveGroup } from "@/features/groups/leave-group/api/leaveGroup";
@@ -16,12 +18,16 @@ interface UseGroupDetailResult {
 }
 
 export function useGroupDetail(groupId?: string): UseGroupDetailResult {
+  const { authReady, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const queryClient = useQueryClient();
   const missingGroupIdError = groupId ? null : new Error("Missing group id.");
+  const isQueryEnabled =
+    Boolean(groupId) &&
+    (import.meta.env.MODE === "test" || (authReady && !isAuthLoading && isAuthenticated));
   const query = useQuery({
     queryKey: groupId ? orbitQueryKeys.groups.detail(groupId) : orbitQueryKeys.groups.detail("missing"),
     queryFn: () => getGroupDetail(groupId as string),
-    enabled: Boolean(groupId),
+    enabled: isQueryEnabled,
   });
 
   const data = query.data ?? null;
@@ -92,9 +98,24 @@ export function useGroupDetail(groupId?: string): UseGroupDetailResult {
   const error =
     missingGroupIdError ?? (query.error instanceof Error ? query.error : null);
 
+  if (appConfig.isDevelopment) {
+    console.info("[orbit:group-detail] query started", {
+      groupId: groupId ?? null,
+      authReady,
+      isAuthenticated,
+      enabled: isQueryEnabled,
+    });
+    if (error) {
+      console.info("[orbit:group-detail] query failed", {
+        groupId: groupId ?? null,
+        message: error.message,
+      });
+    }
+  }
+
   return {
     data,
-    isLoading: groupId ? query.isLoading : false,
+    isLoading: groupId ? isAuthLoading || query.isLoading : false,
     error,
     refetch: async () => {
       if (!groupId) {

@@ -2,9 +2,9 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/features/auth/useAuth";
 
 export function PublicOnlyRoute() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { authReady, isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) {
+  if (!authReady || isLoading) {
     return null;
   }
 

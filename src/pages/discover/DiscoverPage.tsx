@@ -160,7 +160,16 @@ function TrendingGrid({ items }: { items: DiscoverTrendItem[] }) {
 
 export function DiscoverPage() {
   const [activeTab, setActiveTab] = useState<DiscoverTab>("groups");
-  const { groups, events, trending, isLoading, error, refetch } = useDiscoverFeed();
+  const {
+    groups,
+    events,
+    trending,
+    isLoading,
+    error,
+    groupsError,
+    eventsError,
+    refetch,
+  } = useDiscoverFeed();
   const joinGroupMutation = useJoinGroup();
   const { message, clearMessage } = useMutationFeedback(joinGroupMutation.error);
 
@@ -243,10 +252,12 @@ export function DiscoverPage() {
 
         {isLoading ? (
           <DiscoverLoadingState />
-        ) : error ? (
+        ) : error && groups.length === 0 && events.length === 0 && trending.length === 0 ? (
           <DiscoverErrorState onRetry={() => void refetch()} />
         ) : activeTab === "groups" ? (
-          groups.length === 0 ? (
+          groupsError ? (
+            <DiscoverErrorState onRetry={() => void refetch()} />
+          ) : groups.length === 0 ? (
             <DiscoverEmptyState
               activeTab={activeTab}
               onRefresh={() => void refetch()}
@@ -260,7 +271,9 @@ export function DiscoverPage() {
             />
           )
         ) : activeTab === "events" ? (
-          events.length === 0 ? (
+          eventsError ? (
+            <DiscoverErrorState onRetry={() => void refetch()} />
+          ) : events.length === 0 ? (
             <DiscoverEmptyState
               activeTab={activeTab}
               onRefresh={() => void refetch()}

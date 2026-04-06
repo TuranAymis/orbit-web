@@ -54,6 +54,8 @@ describe("useDiscoverFeed", () => {
           metricValue: "High",
         },
       ],
+      groupsError: null,
+      eventsError: null,
     });
 
     const { result } = renderHook(() => useDiscoverFeed(), {
@@ -68,5 +70,35 @@ describe("useDiscoverFeed", () => {
     expect(result.current.events[0]?.title).toBe("Design Systems Review");
     expect(result.current.trending[0]?.metricLabel).toBe("Momentum");
     expect(result.current.isEmpty).toBe(false);
+  });
+
+  it("keeps groups available when the events source fails", async () => {
+    vi.spyOn(discoverApi, "getDiscoverFeed").mockResolvedValue({
+      groups: [
+        {
+          id: "frontend-forge",
+          name: "Frontend Forge",
+          description: "UI systems and accessibility.",
+          memberCount: 9840,
+          imageUrl: "https://example.com/group.png",
+        },
+      ],
+      events: [],
+      trending: [],
+      groupsError: null,
+      eventsError: new Error("Unauthorized"),
+    });
+
+    const { result } = renderHook(() => useDiscoverFeed(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.groups).toHaveLength(1);
+    expect(result.current.eventsError?.message).toMatch(/unauthorized/i);
+    expect(result.current.error).toBeNull();
   });
 });

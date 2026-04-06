@@ -182,4 +182,27 @@ describe("DiscoverPage", () => {
 
     expect(refetch).toHaveBeenCalled();
   });
+
+  it("keeps groups visible when the events source fails", async () => {
+    vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
+      groups: mockGroups,
+      events: [],
+      trending: [],
+      isLoading: false,
+      error: null,
+      groupsError: null,
+      eventsError: new Error("Unauthorized"),
+      isEmpty: false,
+      refetch: vi.fn(),
+    });
+
+    const user = userEvent.setup();
+    renderDiscoverPage();
+
+    expect(screen.getByText(/frontend forge/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /events/i }));
+
+    expect(screen.getByText(/we couldn't load discover right now/i)).toBeInTheDocument();
+  });
 });

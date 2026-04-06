@@ -1,8 +1,8 @@
 import {
   createContext,
-  useEffect,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type PropsWithChildren,
@@ -15,6 +15,7 @@ interface AuthContextValue {
   session: AuthSession | null;
   user: AuthSession["user"] | null;
   role: AuthSession["user"]["role"] | null;
+  authReady: boolean;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
@@ -31,27 +32,17 @@ export function AuthProvider({
   children,
   initialSession,
 }: AuthProviderProps) {
+  const restoredSession = initialSession ?? readStoredSession();
   const [session, setSession] = useState<AuthSession | null>(
-    initialSession ?? null,
+    restoredSession,
   );
-  const [isLoading, setIsLoading] = useState(initialSession === undefined);
+  const [authReady, setAuthReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (initialSession !== undefined) {
-      setSession(initialSession);
-      setIsLoading(false);
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setSession(readStoredSession());
-      setIsLoading(false);
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [initialSession]);
+    setAuthReady(true);
+    setIsLoading(false);
+  }, []);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
     const nextSession = await loginWithBackendSession(credentials);
@@ -69,12 +60,13 @@ export function AuthProvider({
       session,
       user: session?.user ?? null,
       role: session?.user?.role ?? null,
+      authReady,
       isLoading,
       isAuthenticated: Boolean(session?.isAuthenticated),
       login,
       logout,
     }),
-    [isLoading, login, logout, session],
+    [authReady, isLoading, login, logout, session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

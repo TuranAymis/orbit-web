@@ -10,6 +10,9 @@ import { useAuth } from "@/features/auth/useAuth";
 
 const storedSession: AuthSession = {
   isAuthenticated: true,
+  accessToken: "persisted-access-token",
+  tokenType: "bearer",
+  expiresIn: 3600,
   user: {
     id: "user_demo_orbit",
     name: "Demo Orbit",
@@ -72,11 +75,7 @@ describe("AuthProvider", () => {
       </AuthProvider>,
     );
 
-    expect(screen.getByText("loading")).toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(screen.getByText("ready")).toBeInTheDocument();
-    });
+    expect(screen.getByText("ready")).toBeInTheDocument();
 
     expect(screen.getByText("authenticated")).toBeInTheDocument();
     expect(screen.getByText("demo@orbit.dev")).toBeInTheDocument();
@@ -119,6 +118,36 @@ describe("AuthProvider", () => {
 
     expect(screen.getByText("anonymous")).toBeInTheDocument();
     expect(screen.getByText("no-user")).toBeInTheDocument();
+    expect(window.localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+  });
+
+  it("drops persisted authenticated sessions that do not include an access token", async () => {
+    window.localStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({
+        isAuthenticated: true,
+        user: {
+          id: "user_demo_orbit",
+          name: "Demo Orbit",
+          email: "demo@orbit.dev",
+          membershipTier: "Core",
+          role: "user",
+          avatarFallback: "DO",
+        },
+      }),
+    );
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("ready")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("anonymous")).toBeInTheDocument();
     expect(window.localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
   });
 
