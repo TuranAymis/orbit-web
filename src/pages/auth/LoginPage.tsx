@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthError } from "@/features/auth/auth-service";
 import { useAuth } from "@/features/auth/useAuth";
 import { Button } from "@/shared/ui/button";
@@ -8,11 +8,13 @@ import { Input } from "@/shared/ui/input";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login, isLoading } = useAuth();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const verificationSuccess = searchParams.get("verified") === "1";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,6 +56,11 @@ export function LoginPage() {
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-8 text-center text-sm text-muted-foreground">
             Restoring your Orbit session...
           </div>
+        ) : null}
+        {verificationSuccess ? (
+          <p className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
+            Your account is active now. Sign in to continue.
+          </p>
         ) : null}
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
@@ -99,6 +106,23 @@ export function LoginPage() {
             <ArrowRight className="h-4 w-4" />
           </Button>
         </form>
+        <div className="mt-6 space-y-2 text-sm text-muted-foreground">
+          <p>
+            Need an account?{" "}
+            <Link className="text-primary transition hover:text-primary/80" to="/register">
+              Create one
+            </Link>
+          </p>
+          <p>
+            Already have a code?{" "}
+            <Link
+              className="text-primary transition hover:text-primary/80"
+              to={email ? `/verify-account?email=${encodeURIComponent(email)}` : "/verify-account"}
+            >
+              Verify your account
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import type { AuthSession } from "@/features/auth/types";
 
 export const AUTH_STORAGE_KEY = "orbit.auth.session";
+export const AUTH_INVALID_EVENT = "orbit:auth:invalid";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -26,6 +27,20 @@ function isValidSession(value: unknown): value is AuthSession {
     typeof user.avatarFallback === "string" &&
     (value.isAuthenticated !== true || typeof value.accessToken === "string")
   );
+}
+
+export function hasValidAccessToken(session: Pick<AuthSession, "accessToken"> | null | undefined) {
+  return typeof session?.accessToken === "string" && session.accessToken.trim().length > 0;
+}
+
+export function isAuthenticatedSession(
+  session: AuthSession | null | undefined,
+): session is AuthSession {
+  return Boolean(session?.isAuthenticated && hasValidAccessToken(session));
+}
+
+export function normalizeSession(session: AuthSession | null | undefined): AuthSession | null {
+  return isAuthenticatedSession(session) ? session : null;
 }
 
 export function readStoredSession(): AuthSession | null {

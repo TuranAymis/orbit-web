@@ -27,6 +27,9 @@ const eventsPayload = [
 function createSession(role: OrbitUserRole): AuthSession {
   return {
     isAuthenticated: true,
+    accessToken: "test-access-token",
+    tokenType: "bearer",
+    expiresIn: 3600,
     user: {
       id: `user_${role}`,
       name: `${role} orbit`,
@@ -38,7 +41,7 @@ function createSession(role: OrbitUserRole): AuthSession {
   };
 }
 
-function renderEventsPage(session?: AuthSession | null) {
+function renderEventsPage(session: AuthSession | null = createSession("user")) {
   return render(
     <AppProviders initialSession={session}>
       <MemoryRouter>

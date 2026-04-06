@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/useAuth";
+import { hasValidAccessToken } from "@/features/auth/auth-storage";
 import type { EventListItem } from "@/entities/event/model/types";
 import { listEvents } from "@/features/events/list-events/api/listEvents";
 import { appConfig } from "@/config/appConfig";
@@ -16,7 +17,7 @@ interface UseEventsResult {
 export function useEvents(): UseEventsResult {
   const { authReady, isAuthenticated, isLoading: isAuthLoading, session } = useAuth();
   const isQueryEnabled =
-    import.meta.env.MODE === "test" || (authReady && !isAuthLoading && isAuthenticated);
+    authReady && !isAuthLoading && isAuthenticated && hasValidAccessToken(session);
 
   const query = useQuery({
     queryKey: orbitQueryKeys.events.all,
@@ -40,7 +41,7 @@ export function useEvents(): UseEventsResult {
 
   return {
     data,
-    isLoading: isAuthLoading || query.isLoading,
+    isLoading: !authReady || isAuthLoading || query.isLoading,
     error,
     isEmpty: !query.isLoading && !error && data.length === 0,
     refetch: async () => {

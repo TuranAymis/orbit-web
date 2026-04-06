@@ -1,7 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Group } from "@/entities/group/model/types";
+import type { GroupDetail } from "@/entities/group/model/types";
 import { joinGroup } from "@/features/groups/join-group/api/joinGroup";
 import type { DiscoverFeed } from "@/features/discover/get-discover-feed/mappers/discoverMapper";
+import {
+  mergeJoinedGroupState,
+  type JoinedGroupState,
+} from "@/features/groups/model/joinedState";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 
 interface UseJoinGroupResult {
@@ -28,6 +33,12 @@ export function useJoinGroup(): UseJoinGroupResult {
       const previousGroups = queryClient.getQueryData<Group[]>(orbitQueryKeys.groups.all);
       const previousDiscover = queryClient.getQueryData<DiscoverFeed>(
         orbitQueryKeys.discover.feed,
+      );
+      const previousGroupDetail = queryClient.getQueryData<GroupDetail>(
+        orbitQueryKeys.groups.detail(groupId),
+      );
+      const previousJoinedState = queryClient.getQueryData<JoinedGroupState>(
+        orbitQueryKeys.groups.joinedState,
       );
 
       if (previousGroups) {
@@ -60,7 +71,20 @@ export function useJoinGroup(): UseJoinGroupResult {
         });
       }
 
-      return { previousGroups, previousDiscover };
+      if (previousGroupDetail) {
+        queryClient.setQueryData<GroupDetail>(orbitQueryKeys.groups.detail(groupId), {
+          ...previousGroupDetail,
+          isJoined: true,
+          memberCount: previousGroupDetail.memberCount + 1,
+        });
+      }
+
+      queryClient.setQueryData<JoinedGroupState>(
+        orbitQueryKeys.groups.joinedState,
+        mergeJoinedGroupState(previousJoinedState, groupId, true),
+      );
+
+      return { previousGroups, previousDiscover, previousGroupDetail, previousJoinedState };
     },
     onError: (_error, groupId, context) => {
       if (context?.previousGroups) {
@@ -69,6 +93,20 @@ export function useJoinGroup(): UseJoinGroupResult {
 
       if (context?.previousDiscover) {
         queryClient.setQueryData(orbitQueryKeys.discover.feed, context.previousDiscover);
+      }
+
+      if (context?.previousGroupDetail) {
+        queryClient.setQueryData(
+          orbitQueryKeys.groups.detail(groupId),
+          context.previousGroupDetail,
+        );
+      }
+
+      if (context?.previousJoinedState) {
+        queryClient.setQueryData(
+          orbitQueryKeys.groups.joinedState,
+          context.previousJoinedState,
+        );
       }
 
       queryClient.invalidateQueries({ queryKey: orbitQueryKeys.groups.detail(groupId) });

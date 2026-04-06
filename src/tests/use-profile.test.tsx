@@ -2,15 +2,31 @@ import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers/AppProviders";
+import type { AuthSession } from "@/features/auth/types";
 import * as profileApi from "@/features/profile/get-profile/api/getProfile";
 import { useProfile } from "@/features/profile/get-profile/model/useProfile";
 import { createOrbitQueryClient } from "@/shared/lib/query/query-client";
+
+const demoSession: AuthSession = {
+  isAuthenticated: true,
+  accessToken: "test-access-token",
+  tokenType: "bearer",
+  expiresIn: 3600,
+  user: {
+    id: "user_demo",
+    name: "Demo Orbit",
+    email: "demo@orbit.dev",
+    membershipTier: "Core",
+    role: "user",
+    avatarFallback: "DO",
+  },
+};
 
 function createWrapper() {
   const queryClient = createOrbitQueryClient();
 
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <AppProviders queryClient={queryClient}>{children}</AppProviders>;
+    return <AppProviders queryClient={queryClient} initialSession={demoSession}>{children}</AppProviders>;
   };
 }
 

@@ -65,6 +65,12 @@ interface BackendUserResponse {
   role?: string;
 }
 
+interface BackendAuthErrorPayload {
+  detail?: string | unknown[];
+  message?: string;
+  error?: string;
+}
+
 function mapBackendRole(role?: string): OrbitUserRole {
   switch (role) {
     case "admin":
@@ -128,6 +134,41 @@ function logAuthDebug(message: string, meta?: unknown) {
   console.info(`[orbit:auth] ${message}`, meta);
 }
 
+function getBackendAuthErrorText(error: HttpError) {
+  const payload = (error.payload ?? {}) as BackendAuthErrorPayload;
+  const parts = [error.message];
+
+  if (typeof payload.detail === "string") {
+    parts.push(payload.detail);
+  }
+
+  if (typeof payload.message === "string") {
+    parts.push(payload.message);
+  }
+
+  if (typeof payload.error === "string") {
+    parts.push(payload.error);
+  }
+
+  return parts.join(" ").trim().toLowerCase();
+}
+
+export function mapLoginErrorMessage(error: HttpError) {
+  const normalizedMessage = getBackendAuthErrorText(error);
+
+  if (
+    (error.status === 400 || error.status === 401 || error.status === 403) &&
+    (normalizedMessage.includes("inactive") ||
+      normalizedMessage.includes("not active") ||
+      normalizedMessage.includes("verify") ||
+      normalizedMessage.includes("activation"))
+  ) {
+    return "Your account is not active yet. Please verify your email before logging in.";
+  }
+
+  return error.message;
+}
+
 export async function loginWithBackendSession(
   credentials: LoginCredentials,
 ): Promise<AuthSession> {
@@ -150,7 +191,7 @@ export async function loginWithBackendSession(
     return mapBackendSession(tokenPayload, userPayload);
   } catch (error) {
     if (error instanceof HttpError) {
-      throw new AuthError(error.message);
+      throw new AuthError(mapLoginErrorMessage(error));
     }
 
     throw new AuthError("Orbit could not reach the local backend.");

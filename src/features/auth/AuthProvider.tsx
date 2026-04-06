@@ -8,7 +8,13 @@ import {
   type PropsWithChildren,
 } from "react";
 import { loginWithBackendSession } from "@/features/auth/auth-service";
-import { readStoredSession, writeStoredSession } from "@/features/auth/auth-storage";
+import {
+  AUTH_INVALID_EVENT,
+  isAuthenticatedSession,
+  normalizeSession,
+  readStoredSession,
+  writeStoredSession,
+} from "@/features/auth/auth-storage";
 import type { AuthSession, LoginCredentials } from "@/features/auth/types";
 
 interface AuthContextValue {
@@ -32,7 +38,10 @@ export function AuthProvider({
   children,
   initialSession,
 }: AuthProviderProps) {
-  const restoredSession = initialSession ?? readStoredSession();
+  const restoredSession =
+    initialSession === undefined
+      ? readStoredSession()
+      : normalizeSession(initialSession);
   const [session, setSession] = useState<AuthSession | null>(
     restoredSession,
   );
@@ -42,6 +51,19 @@ export function AuthProvider({
   useEffect(() => {
     setAuthReady(true);
     setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    function handleInvalidSession() {
+      setSession(null);
+      writeStoredSession(null);
+    }
+
+    window.addEventListener(AUTH_INVALID_EVENT, handleInvalidSession);
+
+    return () => {
+      window.removeEventListener(AUTH_INVALID_EVENT, handleInvalidSession);
+    };
   }, []);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
@@ -62,7 +84,7 @@ export function AuthProvider({
       role: session?.user?.role ?? null,
       authReady,
       isLoading,
-      isAuthenticated: Boolean(session?.isAuthenticated),
+      isAuthenticated: isAuthenticatedSession(session),
       login,
       logout,
     }),

@@ -10,6 +10,7 @@ const groups: Group[] = [
     name: "Design Systems Guild",
     description: "Scale design tokens, component APIs, and UI governance patterns.",
     memberCount: 8350,
+    isJoined: false,
     imageUrl:
       "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
   },
@@ -18,6 +19,7 @@ const groups: Group[] = [
     name: "AI Builders Circle",
     description: "Prototype assistants, eval workflows, and shipping-ready AI features.",
     memberCount: 14320,
+    isJoined: false,
     imageUrl:
       "https://images.unsplash.com/photo-1526379095098-d400fd0bf935?auto=format&fit=crop&w=1200&q=80",
   },

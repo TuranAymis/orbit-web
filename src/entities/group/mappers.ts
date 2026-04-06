@@ -19,6 +19,7 @@ interface GroupListResponseItem {
   member_count?: number;
   isJoined?: boolean;
   is_joined?: boolean;
+  joined?: boolean;
 }
 
 interface GroupDetailResponse extends GroupListResponseItem {
@@ -26,6 +27,7 @@ interface GroupDetailResponse extends GroupListResponseItem {
   name: string;
   isJoined?: boolean;
   is_joined?: boolean;
+  joined?: boolean;
   category?: string;
   location?: string;
   founder?: string | { id?: string; name?: string };
@@ -66,7 +68,7 @@ export function mapGroupListResponse(response: GroupListResponseItem[]): Group[]
       group.cover_image_url ??
       group.coverImageUrl ??
       fallbackGroupImage,
-    isJoined: group.isJoined ?? group.is_joined ?? false,
+    isJoined: group.isJoined ?? group.is_joined ?? group.joined ?? false,
   }));
 }
 
@@ -94,7 +96,7 @@ export function mapGroupDetailResponse(
       response.coverImageUrl ??
       fallbackGroupImage,
     memberCount: response.memberCount ?? response.member_count ?? 0,
-    isJoined: response.isJoined ?? response.is_joined ?? false,
+    isJoined: response.isJoined ?? response.is_joined ?? response.joined ?? false,
     category: response.category ?? "Community",
     location: response.location ?? "Global",
     founder: founderName,

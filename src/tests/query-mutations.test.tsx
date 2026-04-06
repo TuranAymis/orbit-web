@@ -2,6 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers/AppProviders";
+import type { AuthSession } from "@/features/auth/types";
 import type { EventDetail, EventListItem } from "@/entities/event/model/types";
 import type { GroupDetail } from "@/entities/group/model/types";
 import { useEventDetail } from "@/features/events/get-event-detail/model/useEventDetail";
@@ -58,11 +59,26 @@ const eventDetail: EventDetail = {
   relatedGroup: null,
 };
 
+const demoSession: AuthSession = {
+  isAuthenticated: true,
+  accessToken: "test-access-token",
+  tokenType: "bearer",
+  expiresIn: 3600,
+  user: {
+    id: "user_demo",
+    name: "Demo Orbit",
+    email: "demo@orbit.dev",
+    membershipTier: "Core",
+    role: "user",
+    avatarFallback: "DO",
+  },
+};
+
 function createWrapper() {
   const queryClient = createOrbitQueryClient();
 
   function Wrapper({ children }: { children: ReactNode }) {
-    return <AppProviders queryClient={queryClient}>{children}</AppProviders>;
+    return <AppProviders queryClient={queryClient} initialSession={demoSession}>{children}</AppProviders>;
   }
 
   return { queryClient, Wrapper };
@@ -87,6 +103,11 @@ describe("query-backed mutations", () => {
 
     queryClient.setQueryData(orbitQueryKeys.groups.detail(groupDetail.id), groupDetail);
     queryClient.setQueryData(orbitQueryKeys.groups.all, [groupListItem]);
+    queryClient.setQueryData(orbitQueryKeys.discover.feed, {
+      groups: [groupListItem],
+      events: [],
+      trending: [],
+    });
     vi.spyOn(groupDetailApi, "getGroupDetail").mockResolvedValue({
       ...groupDetail,
       isJoined: true,
@@ -107,6 +128,23 @@ describe("query-backed mutations", () => {
     await waitFor(() => {
       expect(result.current.data?.isJoined).toBe(true);
       expect(result.current.data?.memberCount).toBe(groupDetail.memberCount + 1);
+      expect(
+        queryClient.getQueryData<typeof groupListItem[]>(orbitQueryKeys.groups.all)?.[0],
+      ).toMatchObject({
+        isJoined: true,
+        memberCount: groupDetail.memberCount + 1,
+      });
+      expect(
+        queryClient.getQueryData<DiscoverFeed>(orbitQueryKeys.discover.feed)?.groups[0],
+      ).toMatchObject({
+        isJoined: true,
+        memberCount: groupDetail.memberCount + 1,
+      });
+      expect(
+        queryClient.getQueryData<Record<string, boolean>>(orbitQueryKeys.groups.joinedState),
+      ).toMatchObject({
+        [groupDetail.id]: true,
+      });
       expect(invalidateSpy).toHaveBeenCalledWith({
         queryKey: orbitQueryKeys.groups.all,
       });

@@ -1,6 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { appConfig } from "@/config/appConfig";
 import { useAuth } from "@/features/auth/useAuth";
+import { hasValidAccessToken } from "@/features/auth/auth-storage";
+import {
+  applyJoinedGroupStateToGroups,
+  type JoinedGroupState,
+} from "@/features/groups/model/joinedState";
 import {
   getDiscoverFeed,
   type DiscoverFeedResult,
@@ -32,8 +37,9 @@ export type { DiscoverTrendItem };
 
 export function useDiscoverFeed(): UseDiscoverFeedResult {
   const { authReady, isAuthenticated, isLoading: isAuthLoading, session } = useAuth();
+  const queryClient = useQueryClient();
   const isQueryEnabled =
-    import.meta.env.MODE === "test" || (authReady && !isAuthLoading && isAuthenticated);
+    authReady && !isAuthLoading && isAuthenticated && hasValidAccessToken(session);
   const query = useQuery({
     queryKey: orbitQueryKeys.discover.feed,
     queryFn: getDiscoverFeed,
@@ -41,6 +47,10 @@ export function useDiscoverFeed(): UseDiscoverFeedResult {
   });
 
   const feed = query.data ?? initialFeed;
+  const joinedState = queryClient.getQueryData<JoinedGroupState>(
+    orbitQueryKeys.groups.joinedState,
+  );
+  const groups = applyJoinedGroupStateToGroups(feed.groups, joinedState);
   const queryError = query.error instanceof Error ? query.error : null;
   const error =
     queryError ??
@@ -61,12 +71,13 @@ export function useDiscoverFeed(): UseDiscoverFeedResult {
 
   return {
     ...feed,
-    isLoading: isAuthLoading || query.isLoading,
+    groups,
+    isLoading: !authReady || isAuthLoading || query.isLoading,
     error,
     isEmpty:
       !query.isLoading &&
       !error &&
-      feed.groups.length === 0 &&
+      groups.length === 0 &&
       feed.events.length === 0 &&
       feed.trending.length === 0,
     refetch: async () => {

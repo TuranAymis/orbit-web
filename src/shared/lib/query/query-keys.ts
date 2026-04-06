@@ -2,6 +2,7 @@ export const orbitQueryKeys = {
   groups: {
     all: ["groups"] as const,
     detail: (groupId: string) => ["groups", "detail", groupId] as const,
+    joinedState: ["groups", "joined-state"] as const,
   },
   events: {
     all: ["events"] as const,

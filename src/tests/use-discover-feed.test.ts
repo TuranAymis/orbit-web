@@ -3,15 +3,31 @@ import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers/AppProviders";
+import type { AuthSession } from "@/features/auth/types";
 import { useDiscoverFeed } from "@/features/discover/get-discover-feed/model/useDiscoverFeed";
 import * as discoverApi from "@/features/discover/get-discover-feed/api/getDiscoverFeed";
 import { createOrbitQueryClient } from "@/shared/lib/query/query-client";
+
+const demoSession: AuthSession = {
+  isAuthenticated: true,
+  accessToken: "test-access-token",
+  tokenType: "bearer",
+  expiresIn: 3600,
+  user: {
+    id: "user_demo",
+    name: "Demo Orbit",
+    email: "demo@orbit.dev",
+    membershipTier: "Core",
+    role: "user",
+    avatarFallback: "DO",
+  },
+};
 
 function createWrapper() {
   const queryClient = createOrbitQueryClient();
 
   return function Wrapper({ children }: { children: ReactNode }) {
-    return createElement(AppProviders, { queryClient }, children);
+    return createElement(AppProviders, { queryClient, initialSession: demoSession }, children);
   };
 }
 
@@ -28,6 +44,7 @@ describe("useDiscoverFeed", () => {
           name: "Frontend Forge",
           description: "UI systems and accessibility.",
           memberCount: 9840,
+          isJoined: false,
           imageUrl: "https://example.com/group.png",
         },
       ],
@@ -80,6 +97,7 @@ describe("useDiscoverFeed", () => {
           name: "Frontend Forge",
           description: "UI systems and accessibility.",
           memberCount: 9840,
+          isJoined: false,
           imageUrl: "https://example.com/group.png",
         },
       ],

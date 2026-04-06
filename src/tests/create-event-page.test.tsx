@@ -23,6 +23,9 @@ const groups: Group[] = [
 function createSession(role: OrbitUserRole): AuthSession {
   return {
     isAuthenticated: true,
+    accessToken: "test-access-token",
+    tokenType: "bearer",
+    expiresIn: 3600,
     user: {
       id: `user_${role}`,
       name: `${role} orbit`,

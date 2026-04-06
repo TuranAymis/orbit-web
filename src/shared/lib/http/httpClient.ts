@@ -1,5 +1,8 @@
 import { appConfig } from "@/config/appConfig";
-import { getStoredAccessToken } from "@/features/auth/auth-storage";
+import {
+  AUTH_INVALID_EVENT,
+  getStoredAccessToken,
+} from "@/features/auth/auth-storage";
 
 export class HttpError extends Error {
   status: number;
@@ -122,6 +125,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   });
 
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(AUTH_INVALID_EVENT));
+    }
     throw await parseError(response);
   }
 

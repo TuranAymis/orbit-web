@@ -11,6 +11,9 @@ import { Topbar } from "@/widgets/app-shell/Topbar";
 
 const demoSession: AuthSession = {
   isAuthenticated: true,
+  accessToken: "test-access-token",
+  tokenType: "bearer",
+  expiresIn: 3600,
   user: {
     id: "user_demo_orbit",
     name: "Demo Orbit",

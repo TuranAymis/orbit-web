@@ -12,6 +12,9 @@ import * as joinEventApi from "@/features/events/join-event/api/joinEvent";
 function createSession(role: OrbitUserRole = "user"): AuthSession {
   return {
     isAuthenticated: true,
+    accessToken: "test-access-token",
+    tokenType: "bearer",
+    expiresIn: 3600,
     user: {
       id: `user_${role}`,
       name: `${role} orbit`,

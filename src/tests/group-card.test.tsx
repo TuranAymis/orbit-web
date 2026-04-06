@@ -12,6 +12,7 @@ const group: Group = {
   memberCount: 12480,
   imageUrl:
     "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+  isJoined: false,
 };
 
 describe("GroupCard", () => {
@@ -82,5 +83,16 @@ describe("GroupCard", () => {
     await user.keyboard("{Enter}");
 
     expect(screen.getByText(/group detail page/i)).toBeInTheDocument();
+  });
+
+  it("renders a joined state instead of a join CTA when the group is already joined", () => {
+    render(
+      <MemoryRouter>
+        <GroupCard group={{ ...group, isJoined: true }} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("button", { name: /joined/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /join group/i })).not.toBeInTheDocument();
   });
 });

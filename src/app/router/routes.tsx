@@ -5,6 +5,8 @@ import { PublicOnlyRoute } from "@/features/auth/PublicOnlyRoute";
 import { RouteErrorBoundary } from "@/shared/lib/errors/RouteErrorBoundary";
 import { AppShell } from "@/widgets/app-shell/AppShell";
 import { LoginPage } from "@/pages/auth/LoginPage";
+import { RegisterPage } from "@/pages/auth/RegisterPage";
+import { VerifyAccountPage } from "@/pages/auth/VerifyAccountPage";
 import { DiscoverPage } from "@/pages/discover/DiscoverPage";
 import { GroupsPage } from "@/pages/groups/GroupsPage";
 import { CreateGroupPage } from "@/pages/groups/CreateGroupPage";
@@ -25,6 +27,14 @@ export const routes: RouteObject[] = [
       {
         path: "/login",
         element: <LoginPage />,
+      },
+      {
+        path: "/register",
+        element: <RegisterPage />,
+      },
+      {
+        path: "/verify-account",
+        element: <VerifyAccountPage />,
       },
     ],
   },

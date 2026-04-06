@@ -3,6 +3,7 @@ import { appConfig } from "@/config/appConfig";
 import type { EventDetail } from "@/entities/event/model/types";
 import { getEventDetail } from "@/features/events/get-event-detail/api/getEventDetail";
 import { useAuth } from "@/features/auth/useAuth";
+import { hasValidAccessToken } from "@/features/auth/auth-storage";
 import { joinEvent } from "@/features/events/join-event/api/joinEvent";
 import { leaveEvent } from "@/features/events/leave-event/api/leaveEvent";
 import type { EventListItem } from "@/entities/event/model/types";
@@ -25,7 +26,10 @@ export function useEventDetail(eventId?: string): UseEventDetailResult {
   const missingEventIdError = eventId ? null : new Error("Missing event id.");
   const isQueryEnabled =
     Boolean(eventId) &&
-    (import.meta.env.MODE === "test" || (authReady && !isAuthLoading && isAuthenticated));
+    authReady &&
+    !isAuthLoading &&
+    isAuthenticated &&
+    hasValidAccessToken(session);
   const query = useQuery({
     queryKey: eventId ? orbitQueryKeys.events.detail(eventId) : orbitQueryKeys.events.detail("missing"),
     queryFn: () => getEventDetail(eventId as string),
@@ -173,7 +177,7 @@ export function useEventDetail(eventId?: string): UseEventDetailResult {
 
   return {
     data,
-    isLoading: eventId ? isAuthLoading || query.isLoading : false,
+    isLoading: eventId ? !authReady || isAuthLoading || query.isLoading : false,
     error,
     refetch: async () => {
       if (!eventId) {

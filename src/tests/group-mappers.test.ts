@@ -19,6 +19,21 @@ describe("group mappers", () => {
     expect(result[0]?.imageUrl).toBe("https://example.com/cover.png");
   });
 
+  it("accepts alternate joined field names without dropping valid joined state", () => {
+    const result = mapGroupListResponse([
+      {
+        id: "kadikoy",
+        name: "Kadikoy",
+        description: "Semt toplulugu.",
+        image_url: "https://example.com/kadikoy.png",
+        member_count: 24,
+        joined: true,
+      },
+    ]);
+
+    expect(result[0]?.isJoined).toBe(true);
+  });
+
   it("maps backend payloads into the group detail domain shape", () => {
     const result = mapGroupDetailResponse({
       id: "frontend-forge",

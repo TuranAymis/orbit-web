@@ -11,6 +11,9 @@ import * as groupDetailApi from "@/features/groups/get-group-detail/api/getGroup
 function createSession(role: OrbitUserRole = "user"): AuthSession {
   return {
     isAuthenticated: true,
+    accessToken: "test-access-token",
+    tokenType: "bearer",
+    expiresIn: 3600,
     user: {
       id: `user_${role}`,
       name: `${role} orbit`,
