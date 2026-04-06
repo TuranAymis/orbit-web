@@ -3,11 +3,13 @@ import { getStoredAccessToken } from "@/features/auth/auth-storage";
 
 export class HttpError extends Error {
   status: number;
+  payload?: unknown;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, payload?: unknown) {
     super(message);
     this.name = "HttpError";
     this.status = status;
+    this.payload = payload;
   }
 }
 
@@ -39,20 +41,57 @@ function buildUrl(path: string) {
 
 async function parseError(response: Response): Promise<HttpError> {
   let message = `Request failed with status ${response.status}.`;
+  let payload: unknown;
 
   try {
-    const payload = (await response.json()) as {
+    payload = (await response.json()) as {
       detail?: string;
       message?: string;
       error?: string;
     };
 
-    message = payload.detail ?? payload.message ?? payload.error ?? message;
+    const parsedPayload = payload as {
+      detail?: string | unknown[];
+      message?: string;
+      error?: string;
+    };
+
+    message =
+      typeof parsedPayload.detail === "string"
+        ? parsedPayload.detail
+        : parsedPayload.message ?? parsedPayload.error ?? message;
   } catch {
     // Ignore JSON parsing failures and keep the default message.
   }
 
-  return new HttpError(message, response.status);
+  return new HttpError(message, response.status, payload);
+}
+
+async function parseSuccessBody<T>(response: Response): Promise<T> {
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const contentLength = response.headers.get("content-length");
+  if (contentLength === "0") {
+    return undefined as T;
+  }
+
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!contentType.includes("application/json")) {
+    const rawBody = await response.text();
+    if (rawBody.trim().length === 0) {
+      return undefined as T;
+    }
+
+    return rawBody as T;
+  }
+
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new HttpError("Response body is not valid JSON.", response.status);
+  }
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -86,11 +125,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     throw await parseError(response);
   }
 
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return (await response.json()) as T;
+  return parseSuccessBody<T>(response);
 }
 
 export const httpClient = {

@@ -68,7 +68,7 @@ export function AuthProvider({
     () => ({
       session,
       user: session?.user ?? null,
-      role: session?.user.role ?? null,
+      role: session?.user?.role ?? null,
       isLoading,
       isAuthenticated: Boolean(session?.isAuthenticated),
       login,

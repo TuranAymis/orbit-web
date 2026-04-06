@@ -61,10 +61,10 @@ export function mapGroupListResponse(response: GroupListResponseItem[]): Group[]
     description: group.description ?? "No group description available yet.",
     memberCount: group.memberCount ?? group.member_count ?? 0,
     imageUrl:
-      group.imageUrl ??
       group.image_url ??
-      group.coverImageUrl ??
+      group.imageUrl ??
       group.cover_image_url ??
+      group.coverImageUrl ??
       fallbackGroupImage,
     isJoined: group.isJoined ?? group.is_joined ?? false,
   }));
@@ -88,10 +88,10 @@ export function mapGroupDetailResponse(
     name: response.name,
     description: response.description ?? "No description available yet.",
     coverImageUrl:
-      response.coverImageUrl ??
-      response.cover_image_url ??
-      response.imageUrl ??
       response.image_url ??
+      response.imageUrl ??
+      response.cover_image_url ??
+      response.coverImageUrl ??
       fallbackGroupImage,
     memberCount: response.memberCount ?? response.member_count ?? 0,
     isJoined: response.isJoined ?? response.is_joined ?? false,

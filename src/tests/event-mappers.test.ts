@@ -11,7 +11,7 @@ describe("event mappers", () => {
         id: "evt_1",
         title: "Design Systems Review",
         description: "Review tokens and API changes.",
-        cover_image_url: "https://example.com/cover.png",
+        image_url: "https://example.com/cover.png",
         starts_at: "2026-04-08T18:00:00.000Z",
         ends_at: "2026-04-08T19:00:00.000Z",
         location: "Orbit Room",
@@ -31,7 +31,7 @@ describe("event mappers", () => {
       id: "evt_1",
       title: "Design Systems Review",
       description: "Review tokens and API changes.",
-      cover_image_url: "https://example.com/cover.png",
+      image_url: "https://example.com/cover.png",
       starts_at: "2026-04-08T18:00:00.000Z",
       ends_at: "2026-04-08T19:00:00.000Z",
       location: "Orbit Room",
@@ -55,5 +55,18 @@ describe("event mappers", () => {
     expect(result.attendeeCount).toBe(42);
     expect(result.isJoined).toBe(true);
     expect(result.participantsPreview[0]?.role).toBe("Moderator");
+  });
+
+  it("handles null participants without crashing", () => {
+    const result = mapEventDetailResponse({
+      id: "evt_2",
+      title: "Orbit Meetup",
+      participants_preview: [null as unknown as Record<string, unknown>],
+    });
+
+    expect(result.participantsPreview).toHaveLength(1);
+    expect(result.participantsPreview[0]?.id).toBe("participant_0");
+    expect(result.participantsPreview[0]?.name).toBe("Orbit Member");
+    expect(result.participantsPreview[0]?.role).toBe("Participant");
   });
 });

@@ -12,6 +12,26 @@ interface CreateEventFormProps {
   onSubmit: (input: CreateEventInput) => Promise<void>;
 }
 
+const MAX_COVER_IMAGE_URL_LENGTH = 2048;
+
+function validateCoverImageUrl(value: string) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  if (trimmedValue.startsWith("data:image/")) {
+    return "Please enter a valid image URL. Base64 images are not supported.";
+  }
+
+  if (trimmedValue.length > MAX_COVER_IMAGE_URL_LENGTH) {
+    return "Image URL is too long. Maximum length is 2048 characters.";
+  }
+
+  return null;
+}
+
 function getDefaultDate(offsetHours: number) {
   const date = new Date(Date.now() + offsetHours * 60 * 60 * 1000);
   return date.toISOString().slice(0, 16);
@@ -40,6 +60,7 @@ export function CreateEventForm({
     startsAt: getDefaultDate(24),
     endsAt: getDefaultDate(25),
   });
+  const [coverImageUrlError, setCoverImageUrlError] = useState<string | null>(null);
 
   return (
     <Card className="border-white/10 bg-white/[0.03]">
@@ -48,7 +69,18 @@ export function CreateEventForm({
           className="space-y-5"
           onSubmit={(event) => {
             event.preventDefault();
-            void onSubmit(form);
+            const nextCoverImageUrlError = validateCoverImageUrl(form.coverImageUrl ?? "");
+
+            setCoverImageUrlError(nextCoverImageUrlError);
+
+            if (nextCoverImageUrlError) {
+              return;
+            }
+
+            void onSubmit({
+              ...form,
+              coverImageUrl: form.coverImageUrl?.trim() ?? "",
+            });
           }}
         >
           <div className="space-y-2">
@@ -135,12 +167,24 @@ export function CreateEventForm({
             </label>
             <Input
               id="event-cover"
+              aria-invalid={coverImageUrlError ? "true" : "false"}
+              aria-describedby="event-cover-help event-cover-error"
               value={form.coverImageUrl ?? ""}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, coverImageUrl: event.target.value }))
-              }
+              className={coverImageUrlError ? "border-destructive/50 focus-visible:border-destructive/60 focus-visible:ring-destructive/20" : undefined}
+              onChange={(event) => {
+                setCoverImageUrlError(null);
+                setForm((current) => ({ ...current, coverImageUrl: event.target.value }));
+              }}
               placeholder="https://..."
             />
+            <p id="event-cover-help" className="text-xs leading-5 text-muted-foreground">
+              Enter a public image URL (for example https://...). Base64 images are not supported.
+            </p>
+            {coverImageUrlError ? (
+              <p id="event-cover-error" className="text-sm text-destructive">
+                {coverImageUrlError}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground" htmlFor="event-description">

@@ -1,20 +1,7 @@
+import { mapGroupListResponse } from "@/entities/group/mappers";
 import { mapEventListResponse } from "@/entities/event/mappers";
 import type { EventListItem } from "@/entities/event/model/types";
 import type { Group } from "@/entities/group/model/types";
-
-interface GroupListResponseItem {
-  id: string;
-  name: string;
-  description?: string;
-  imageUrl?: string;
-  image_url?: string;
-  coverImageUrl?: string;
-  cover_image_url?: string;
-  memberCount?: number;
-  member_count?: number;
-  isJoined?: boolean;
-  is_joined?: boolean;
-}
 
 interface DiscoverTrendItemResponse {
   id?: string;
@@ -64,26 +51,6 @@ function getCollection(payload: unknown, keys: string[]): unknown[] {
   }
 
   return [];
-}
-
-function mapGroupListResponse(payload: unknown): Group[] {
-  return getCollection(payload, ["groups", "items", "data"]).map((item, index) => {
-    const group = item as Partial<GroupListResponseItem>;
-
-    return {
-      id: group.id ?? `group_${index}`,
-      name: group.name ?? "Orbit Group",
-      description: group.description ?? "No group description available yet.",
-      memberCount: group.memberCount ?? group.member_count ?? 0,
-      imageUrl:
-        group.imageUrl ??
-        group.image_url ??
-        group.coverImageUrl ??
-        group.cover_image_url ??
-        "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
-      isJoined: group.isJoined ?? group.is_joined ?? false,
-    };
-  });
 }
 
 function deriveTrending(groups: Group[], events: EventListItem[]): DiscoverTrendItem[] {
@@ -144,9 +111,13 @@ export function mapDiscoverFeedResponse({
   eventsPayload,
   trendingPayload,
 }: DiscoverFeedResponse): DiscoverFeed {
-  const groups = mapGroupListResponse(groupsPayload);
+  const groups = mapGroupListResponse(
+    getCollection(groupsPayload, ["items", "data", "groups"]) as Parameters<
+      typeof mapGroupListResponse
+    >[0],
+  );
   const events = mapEventListResponse(
-    getCollection(eventsPayload, ["events", "items", "data"]) as Parameters<
+    getCollection(eventsPayload, ["items", "data", "events"]) as Parameters<
       typeof mapEventListResponse
     >[0],
   );

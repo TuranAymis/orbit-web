@@ -24,7 +24,7 @@ export function useEvents(): UseEventsResult {
     data,
     isLoading: query.isLoading,
     error,
-    isEmpty: !query.isLoading && data.length === 0,
+    isEmpty: !query.isLoading && !error && data.length === 0,
     refetch: async () => {
       await query.refetch();
     },

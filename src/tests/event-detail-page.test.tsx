@@ -182,11 +182,54 @@ describe("EventDetailPage", () => {
     renderEventDetail("/events/design-systems-review", createSession("admin"));
 
     await screen.findByRole("heading", { name: /design systems review/i });
-    await user.click(screen.getByRole("button", { name: /delete event/i }));
+    const deleteAction = screen.getByTestId("event-delete-action");
 
-    const confirmCard = screen.getByRole("alertdialog", { name: /delete this event\?/i });
+    await user.click(within(deleteAction).getByRole("button", { name: /delete event/i }));
+
+    const confirmCard = within(deleteAction).getByRole("alertdialog", {
+      name: /delete this event\?/i,
+    });
 
     expect(within(confirmCard).getByRole("button", { name: /^delete event$/i })).toBeInTheDocument();
+  });
+
+  it("closes the local confirmation when cancel is clicked", async () => {
+    vi.spyOn(getEventDetailApi, "getEventDetail").mockResolvedValue(eventPayload as never);
+    const user = userEvent.setup();
+
+    renderEventDetail("/events/design-systems-review", createSession("admin"));
+
+    await screen.findByRole("heading", { name: /design systems review/i });
+    const deleteAction = screen.getByTestId("event-delete-action");
+
+    await user.click(within(deleteAction).getByRole("button", { name: /delete event/i }));
+    await user.click(within(deleteAction).getByRole("button", { name: /cancel/i }));
+
+    expect(within(deleteAction).queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("shows a loading state while the delete mutation is pending", async () => {
+    vi.spyOn(getEventDetailApi, "getEventDetail").mockResolvedValue(eventPayload as never);
+    vi.spyOn(deleteEventApi, "deleteEvent").mockImplementation(
+      () => new Promise(() => {}),
+    );
+    const user = userEvent.setup();
+
+    renderEventDetail("/events/design-systems-review", createSession("moderator"));
+
+    await screen.findByRole("heading", { name: /design systems review/i });
+    const deleteAction = screen.getByTestId("event-delete-action");
+
+    await user.click(within(deleteAction).getByRole("button", { name: /delete event/i }));
+    const confirmCard = within(deleteAction).getByRole("alertdialog", {
+      name: /delete this event\?/i,
+    });
+
+    await user.click(within(confirmCard).getByRole("button", { name: /^delete event$/i }));
+
+    expect(
+      within(deleteAction).getByRole("button", { name: /deleting/i }),
+    ).toBeDisabled();
   });
 
   it("surfaces delete permission errors without crashing", async () => {
@@ -199,8 +242,12 @@ describe("EventDetailPage", () => {
     renderEventDetail("/events/design-systems-review", createSession("moderator"));
 
     await screen.findByRole("heading", { name: /design systems review/i });
-    await user.click(screen.getByRole("button", { name: /delete event/i }));
-    const confirmCard = screen.getByRole("alertdialog", { name: /delete this event\?/i });
+    const deleteAction = screen.getByTestId("event-delete-action");
+
+    await user.click(within(deleteAction).getByRole("button", { name: /delete event/i }));
+    const confirmCard = within(deleteAction).getByRole("alertdialog", {
+      name: /delete this event\?/i,
+    });
 
     await user.click(
       within(confirmCard).getByRole("button", { name: /^delete event$/i }),

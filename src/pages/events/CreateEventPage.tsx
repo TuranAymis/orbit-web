@@ -67,8 +67,12 @@ export function CreateEventPage() {
             initialGroupId={searchParams.get("groupId") ?? undefined}
             isSubmitting={createEventMutation.isPending}
             onSubmit={async (input) => {
-              const createdEvent = await createEventMutation.mutateAsync(input);
-              navigate(`/events/${createdEvent.id}`);
+              try {
+                const createdEvent = await createEventMutation.mutateAsync(input);
+                navigate(`/events/${createdEvent.id}`);
+              } catch {
+                return;
+              }
             }}
           />
         </AsyncState>

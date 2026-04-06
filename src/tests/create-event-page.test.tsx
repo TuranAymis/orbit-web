@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -106,5 +106,112 @@ describe("CreateEventPage", () => {
     });
 
     expect(screen.getByText(/created event route/i)).toBeInTheDocument();
+  });
+
+  it("blocks base64 cover images before submit and shows an inline field error", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ id: "event_42" });
+    vi.spyOn(createEventModule, "useCreateEvent").mockReturnValue({
+      mutateAsync,
+      isPending: false,
+      error: null,
+    } as never);
+    const user = userEvent.setup();
+
+    renderCreateEventPage(createSession("moderator"));
+
+    await user.type(screen.getByLabelText(/event title/i), "Orbit Review");
+    await user.type(screen.getByLabelText(/location/i), "Orbit Live Room");
+    await user.type(
+      screen.getByLabelText(/cover image url/i),
+      "data:image/png;base64,abc123",
+    );
+    await user.click(screen.getByRole("button", { name: /^create event$/i }));
+
+    expect(
+      screen.getByText(/please enter a valid image url\. base64 images are not supported\./i),
+    ).toBeInTheDocument();
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("blocks overly long cover image urls before submit and clears the error on edit", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ id: "event_42" });
+    vi.spyOn(createEventModule, "useCreateEvent").mockReturnValue({
+      mutateAsync,
+      isPending: false,
+      error: null,
+    } as never);
+    const user = userEvent.setup();
+
+    renderCreateEventPage(createSession("moderator"));
+
+    await user.type(screen.getByLabelText(/event title/i), "Orbit Review");
+    await user.type(screen.getByLabelText(/location/i), "Orbit Live Room");
+    fireEvent.change(screen.getByLabelText(/cover image url/i), {
+      target: { value: `https://example.com/${"a".repeat(2050)}` },
+    });
+    await user.click(screen.getByRole("button", { name: /^create event$/i }));
+
+    expect(
+      screen.getByText(/image url is too long\. maximum length is 2048 characters\./i),
+    ).toBeInTheDocument();
+    expect(mutateAsync).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText(/cover image url/i), {
+      target: { value: "https://example.com/image.png" },
+    });
+
+    expect(
+      screen.queryByText(/image url is too long\. maximum length is 2048 characters\./i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("allows a normal image url to pass validation", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ id: "event_42" });
+    vi.spyOn(createEventModule, "useCreateEvent").mockReturnValue({
+      mutateAsync,
+      isPending: false,
+      error: null,
+    } as never);
+    const user = userEvent.setup();
+
+    renderCreateEventPage(createSession("moderator"));
+
+    await user.type(screen.getByLabelText(/event title/i), "Orbit Review");
+    await user.type(screen.getByLabelText(/location/i), "Orbit Live Room");
+    fireEvent.change(screen.getByLabelText(/cover image url/i), {
+      target: { value: "https://example.com/image.png" },
+    });
+    await user.click(screen.getByRole("button", { name: /^create event$/i }));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          coverImageUrl: "https://example.com/image.png",
+        }),
+      );
+    });
+  });
+
+  it("shows a friendly backend 422 validation message instead of raw error text", async () => {
+    vi.spyOn(createEventModule, "useCreateEvent").mockReturnValue({
+      mutateAsync: vi.fn().mockRejectedValue(
+        new Error("Image URL is too long. Please use a normal image link."),
+      ),
+      isPending: false,
+      error: new Error("Image URL is too long. Please use a normal image link."),
+    } as never);
+    const user = userEvent.setup();
+
+    renderCreateEventPage(createSession("moderator"));
+
+    await user.type(screen.getByLabelText(/event title/i), "Orbit Review");
+    await user.type(screen.getByLabelText(/location/i), "Orbit Live Room");
+    await user.type(screen.getByLabelText(/cover image url/i), "https://example.com/image.png");
+    await user.click(screen.getByRole("button", { name: /^create event$/i }));
+
+    expect(
+      await screen.findByText(/image url is too long\. please use a normal image link\./i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/string_too_long/i)).not.toBeInTheDocument();
   });
 });

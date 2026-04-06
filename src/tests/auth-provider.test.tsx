@@ -101,6 +101,27 @@ describe("AuthProvider", () => {
     expect(window.localStorage.getItem(AUTH_STORAGE_KEY)).toContain("demo@orbit.dev");
   });
 
+  it("drops malformed persisted sessions and stays anonymous", async () => {
+    window.localStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({ isAuthenticated: true, user: { email: "bad-shape@orbit.dev" } }),
+    );
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("ready")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("anonymous")).toBeInTheDocument();
+    expect(screen.getByText("no-user")).toBeInTheDocument();
+    expect(window.localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+  });
+
   it("surfaces login failures without storing a session", async () => {
     const user = userEvent.setup();
 

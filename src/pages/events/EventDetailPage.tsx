@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/useAuth";
@@ -8,8 +8,102 @@ import { canDeleteEvent } from "@/shared/lib/access/permissions";
 import { useMutationFeedback } from "@/shared/lib/mutations/useMutationFeedback";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
-import { InlineConfirmCard } from "@/shared/ui/InlineConfirmCard";
 import { EventDetailLayout } from "@/widgets/event-detail/EventDetailLayout";
+
+interface EventDeleteActionProps {
+  isOpen: boolean;
+  isDeleting: boolean;
+  onToggle: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+function EventDeleteAction({
+  isOpen,
+  isDeleting,
+  onToggle,
+  onCancel,
+  onConfirm,
+}: EventDeleteActionProps) {
+  const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    confirmButtonRef.current?.focus();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !isDeleting) {
+        onCancel();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isDeleting, onCancel]);
+
+  return (
+    <div data-testid="event-delete-action" className="w-full sm:min-w-64">
+      <Button
+        variant="outline"
+        className="w-full border-destructive/30 text-destructive hover:bg-destructive/10"
+        disabled={isDeleting}
+        onClick={onToggle}
+      >
+        Delete Event
+      </Button>
+      {isOpen ? (
+        <Card
+          data-testid="event-delete-confirmation"
+          className="mt-3 border-destructive/30 bg-[#170d14]/95 shadow-lg shadow-black/30"
+          role="alertdialog"
+          aria-labelledby="event-delete-title"
+          aria-describedby="event-delete-description"
+          aria-modal="false"
+        >
+          <CardContent className="space-y-4 p-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <h2 id="event-delete-title" className="text-sm font-semibold text-foreground">
+                  Delete this event?
+                </h2>
+              </div>
+              <p
+                id="event-delete-description"
+                className="text-sm leading-6 text-muted-foreground"
+              >
+                This permanently removes the event from Orbit. The backend still validates whether
+                you can delete it.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="ghost" disabled={isDeleting} onClick={onCancel}>
+                Cancel
+              </Button>
+              <Button
+                ref={confirmButtonRef}
+                variant="outline"
+                disabled={isDeleting}
+                onClick={onConfirm}
+              >
+                {isDeleting ? "Deleting..." : "Delete event"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
 
 function EventDetailLoadingState() {
   return (
@@ -100,28 +194,6 @@ export function EventDetailPage() {
           </CardContent>
         </Card>
       ) : null}
-      {isConfirmingDelete ? (
-        <InlineConfirmCard
-          title="Delete this event?"
-          description="This permanently removes the event from Orbit. The backend still validates whether you can delete it."
-          confirmLabel="Delete event"
-          isConfirming={deleteEventMutation.isPending}
-          onCancel={() => setIsConfirmingDelete(false)}
-          onConfirm={() => {
-            void (async () => {
-              try {
-                await deleteEventMutation.mutateAsync();
-              } catch {
-                return;
-              }
-
-              setIsConfirmingDelete(false);
-              navigate("/events");
-            })();
-          }}
-          icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
-        />
-      ) : null}
       <EventDetailLayout
         event={data}
         isMutatingAttendance={isMutatingAttendance}
@@ -129,13 +201,24 @@ export function EventDetailPage() {
         mainContent={<EventAboutPanel description={data.description} />}
         heroActions={
           canDeleteEvent(user) ? (
-            <Button
-              variant="outline"
-              className="border-destructive/30 text-destructive hover:bg-destructive/10"
-              onClick={() => setIsConfirmingDelete(true)}
-            >
-              Delete Event
-            </Button>
+            <EventDeleteAction
+              isOpen={isConfirmingDelete}
+              isDeleting={deleteEventMutation.isPending}
+              onToggle={() => setIsConfirmingDelete((current) => !current)}
+              onCancel={() => setIsConfirmingDelete(false)}
+              onConfirm={() => {
+                void (async () => {
+                  try {
+                    await deleteEventMutation.mutateAsync();
+                  } catch {
+                    return;
+                  }
+
+                  setIsConfirmingDelete(false);
+                  navigate("/events");
+                })();
+              }}
+            />
           ) : null
         }
       />

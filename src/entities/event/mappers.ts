@@ -7,8 +7,11 @@ import type {
 
 interface EventListResponseItem {
   id: string;
+  groupId?: string;
   title: string;
   description?: string;
+  imageUrl?: string;
+  image_url?: string | null;
   coverImageUrl?: string;
   cover_image_url?: string | null;
   startsAt?: string;
@@ -44,23 +47,30 @@ type EventParticipantResponseShape =
       avatar_url?: string | null;
     });
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function mapEventBase(response: EventListResponseItem): EventListItem {
   return {
     id: response.id,
+    groupId: response.group_id ?? response.groupId,
     title: response.title,
     description: response.description ?? "No event description available yet.",
     coverImageUrl:
-      response.coverImageUrl ??
+      response.image_url ??
+      response.imageUrl ??
       response.cover_image_url ??
+      response.coverImageUrl ??
       "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
     startsAt:
-      response.startsAt ??
       response.starts_at ??
+      response.startsAt ??
       response.start_time ??
       new Date().toISOString(),
     endsAt:
-      response.endsAt ??
       response.ends_at ??
+      response.endsAt ??
       response.end_time ??
       new Date().toISOString(),
     location: response.location ?? "Orbit Room",
@@ -106,15 +116,28 @@ export function mapEventDetailResponse(
         : null,
     participantsPreview:
       participants?.map((participant, index) => {
+        const safeParticipant = isObject(participant) ? participant : {};
         const avatarUrl =
-          "avatar_url" in participant ? participant.avatar_url : undefined;
+          "avatar_url" in safeParticipant
+            ? (safeParticipant.avatar_url as string | null | undefined)
+            : undefined;
 
         return {
-          id: participant.id ?? `participant_${index}`,
-          name: participant.name ?? "Orbit Member",
+          id:
+            typeof safeParticipant.id === "string"
+              ? safeParticipant.id
+              : `participant_${index}`,
+          name:
+            typeof safeParticipant.name === "string"
+              ? safeParticipant.name
+              : "Orbit Member",
           avatarFallback:
-            participant.avatarFallback ??
-            participant.name
+            (typeof safeParticipant.avatarFallback === "string"
+              ? safeParticipant.avatarFallback
+              : undefined) ??
+            (typeof safeParticipant.name === "string"
+              ? safeParticipant.name
+              : undefined)
               ?.split(" ")
               .map((part) => part[0] ?? "")
               .join("")
@@ -122,7 +145,10 @@ export function mapEventDetailResponse(
               .toUpperCase() ??
             avatarUrl?.slice(0, 2).toUpperCase() ??
             "OM",
-          role: participant.role ?? "Participant",
+          role:
+            typeof safeParticipant.role === "string"
+              ? safeParticipant.role
+              : "Participant",
         };
       }) ?? [],
   };

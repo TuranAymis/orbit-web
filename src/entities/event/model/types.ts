@@ -1,5 +1,6 @@
 export interface EventListItem {
   id: string;
+  groupId?: string;
   title: string;
   description: string;
   coverImageUrl: string;
