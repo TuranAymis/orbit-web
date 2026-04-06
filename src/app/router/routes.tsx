@@ -7,9 +7,11 @@ import { AppShell } from "@/widgets/app-shell/AppShell";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { DiscoverPage } from "@/pages/discover/DiscoverPage";
 import { GroupsPage } from "@/pages/groups/GroupsPage";
+import { CreateGroupPage } from "@/pages/groups/CreateGroupPage";
 import { GroupDetailPage } from "@/pages/groups/GroupDetailPage";
 import { ChatPage } from "@/pages/chat/ChatPage";
 import { EventsPage } from "@/pages/events/EventsPage";
+import { CreateEventPage } from "@/pages/events/CreateEventPage";
 import { EventDetailPage } from "@/pages/events/EventDetailPage";
 import { ProfilePage } from "@/pages/profile/ProfilePage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
@@ -48,6 +50,10 @@ export const routes: RouteObject[] = [
             element: <GroupsPage />,
           },
           {
+            path: "groups/create",
+            element: <CreateGroupPage />,
+          },
+          {
             path: "groups/:groupId",
             element: <GroupDetailPage />,
           },
@@ -58,6 +64,10 @@ export const routes: RouteObject[] = [
           {
             path: "events",
             element: <EventsPage />,
+          },
+          {
+            path: "events/create",
+            element: <CreateEventPage />,
           },
           {
             path: "events/:eventId",

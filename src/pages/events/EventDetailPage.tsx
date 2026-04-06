@@ -1,8 +1,14 @@
-import { RefreshCw } from "lucide-react";
-import { useParams } from "react-router-dom";
+import { useState } from "react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "@/features/auth/useAuth";
+import { useDeleteEvent } from "@/features/events/delete-event/model/useDeleteEvent";
 import { useEventDetail } from "@/features/events/get-event-detail/model/useEventDetail";
+import { canDeleteEvent } from "@/shared/lib/access/permissions";
+import { useMutationFeedback } from "@/shared/lib/mutations/useMutationFeedback";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
+import { InlineConfirmCard } from "@/shared/ui/InlineConfirmCard";
 import { EventDetailLayout } from "@/widgets/event-detail/EventDetailLayout";
 
 function EventDetailLoadingState() {
@@ -53,7 +59,10 @@ function EventAboutPanel({ description }: { description: string }) {
 }
 
 export function EventDetailPage() {
+  const navigate = useNavigate();
   const { eventId } = useParams<{ eventId: string }>();
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const { user } = useAuth();
   const {
     data,
     isLoading,
@@ -61,7 +70,15 @@ export function EventDetailPage() {
     refetch,
     toggleAttendance,
     isMutatingAttendance,
+    attendanceError,
   } = useEventDetail(eventId);
+  const deleteEventMutation = useDeleteEvent({
+    eventId,
+    groupId: data?.relatedGroup?.id ?? null,
+  });
+  const { message, clearMessage } = useMutationFeedback(
+    deleteEventMutation.error ?? attendanceError,
+  );
 
   if (isLoading) {
     return <EventDetailLoadingState />;
@@ -72,11 +89,56 @@ export function EventDetailPage() {
   }
 
   return (
-    <EventDetailLayout
-      event={data}
-      isMutatingAttendance={isMutatingAttendance}
-      onToggleAttendance={() => void toggleAttendance()}
-      mainContent={<EventAboutPanel description={data.description} />}
-    />
+    <div className="space-y-4">
+      {message ? (
+        <Card className="border-destructive/40 bg-destructive/10">
+          <CardContent className="flex flex-col items-start gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-foreground">{message}</p>
+            <Button variant="outline" size="sm" onClick={clearMessage}>
+              Dismiss
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+      {isConfirmingDelete ? (
+        <InlineConfirmCard
+          title="Delete this event?"
+          description="This permanently removes the event from Orbit. The backend still validates whether you can delete it."
+          confirmLabel="Delete event"
+          isConfirming={deleteEventMutation.isPending}
+          onCancel={() => setIsConfirmingDelete(false)}
+          onConfirm={() => {
+            void (async () => {
+              try {
+                await deleteEventMutation.mutateAsync();
+              } catch {
+                return;
+              }
+
+              setIsConfirmingDelete(false);
+              navigate("/events");
+            })();
+          }}
+          icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
+        />
+      ) : null}
+      <EventDetailLayout
+        event={data}
+        isMutatingAttendance={isMutatingAttendance}
+        onToggleAttendance={() => void toggleAttendance()}
+        mainContent={<EventAboutPanel description={data.description} />}
+        heroActions={
+          canDeleteEvent(user) ? (
+            <Button
+              variant="outline"
+              className="border-destructive/30 text-destructive hover:bg-destructive/10"
+              onClick={() => setIsConfirmingDelete(true)}
+            >
+              Delete Event
+            </Button>
+          ) : null
+        }
+      />
+    </div>
   );
 }

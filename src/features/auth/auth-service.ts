@@ -4,7 +4,11 @@ import {
   mapBackendMembershipLevelToTier,
 } from "@/entities/membership/mappers";
 import { httpClient, HttpError } from "@/shared/lib/http/httpClient";
-import type { AuthSession, LoginCredentials } from "@/features/auth/types";
+import type {
+  AuthSession,
+  LoginCredentials,
+  OrbitUserRole,
+} from "@/features/auth/types";
 
 const DEMO_EMAIL = "demo@orbit.dev";
 const DEMO_PASSWORD = "orbit123";
@@ -16,6 +20,7 @@ const mockSession: AuthSession = {
     name: "Demo Orbit",
     email: DEMO_EMAIL,
     membershipTier: "Core",
+    role: "admin",
     avatarFallback: "DO",
   },
   accessToken: "test-access-token",
@@ -57,6 +62,17 @@ interface BackendUserResponse {
   full_name: string;
   email: string;
   membership_level?: string;
+  role?: string;
+}
+
+function mapBackendRole(role?: string): OrbitUserRole {
+  switch (role) {
+    case "admin":
+    case "moderator":
+      return role;
+    default:
+      return "user";
+  }
 }
 
 function createAvatarFallback(name: string) {
@@ -93,6 +109,7 @@ function mapBackendSession(
       name: userPayload.full_name,
       email: userPayload.email,
       membershipTier: mappedMembershipTier,
+      role: mapBackendRole(userPayload.role),
       avatarFallback: createAvatarFallback(userPayload.full_name),
     },
   };

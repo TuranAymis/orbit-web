@@ -10,6 +10,7 @@ interface EventDetailLayoutProps {
   isMutatingAttendance?: boolean;
   onToggleAttendance: () => void;
   mainContent: ReactNode;
+  heroActions?: ReactNode;
 }
 
 export function EventDetailLayout({
@@ -17,6 +18,7 @@ export function EventDetailLayout({
   isMutatingAttendance = false,
   onToggleAttendance,
   mainContent,
+  heroActions,
 }: EventDetailLayoutProps) {
   return (
     <div className="space-y-6">
@@ -24,6 +26,7 @@ export function EventDetailLayout({
         event={event}
         isMutating={isMutatingAttendance}
         onToggleJoin={onToggleAttendance}
+        actions={heroActions}
       />
       <EventMetaCard event={event} />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">

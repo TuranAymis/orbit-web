@@ -9,6 +9,7 @@ interface GroupDetailLayoutProps {
   isMutatingMembership?: boolean;
   onToggleMembership: () => void;
   mainContent: ReactNode;
+  heroActions?: ReactNode;
 }
 
 export function GroupDetailLayout({
@@ -16,6 +17,7 @@ export function GroupDetailLayout({
   isMutatingMembership = false,
   onToggleMembership,
   mainContent,
+  heroActions,
 }: GroupDetailLayoutProps) {
   return (
     <div className="space-y-6">
@@ -23,6 +25,7 @@ export function GroupDetailLayout({
         group={group}
         isMutating={isMutatingMembership}
         onToggleMembership={onToggleMembership}
+        actions={heroActions}
       />
       <GroupStatsCard group={group} />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">

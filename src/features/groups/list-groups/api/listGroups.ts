@@ -7,7 +7,12 @@ interface BackendGroupResponse {
   name: string;
   description?: string | null;
   coverImageUrl?: string;
+  cover_image_url?: string;
+  image_url?: string;
   memberCount?: number;
+  member_count?: number;
+  isJoined?: boolean;
+  is_joined?: boolean;
 }
 
 export async function listGroups(): Promise<Group[]> {

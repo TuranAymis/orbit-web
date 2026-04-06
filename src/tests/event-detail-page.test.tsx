@@ -1,22 +1,27 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers/AppProviders";
 import { EventDetailPage } from "@/pages/events/EventDetailPage";
+import type { OrbitUserRole, AuthSession } from "@/features/auth/types";
+import * as deleteEventApi from "@/features/events/delete-event/api/deleteEvent";
 import * as getEventDetailApi from "@/features/events/get-event-detail/api/getEventDetail";
-import type { AuthSession } from "@/features/auth/types";
+import * as joinEventApi from "@/features/events/join-event/api/joinEvent";
 
-const demoSession: AuthSession = {
-  isAuthenticated: true,
-  user: {
-    id: "user_demo_orbit",
-    name: "Demo Orbit",
-    email: "demo@orbit.dev",
-    membershipTier: "Core",
-    avatarFallback: "DO",
-  },
-};
+function createSession(role: OrbitUserRole = "user"): AuthSession {
+  return {
+    isAuthenticated: true,
+    user: {
+      id: `user_${role}`,
+      name: `${role} orbit`,
+      email: `${role}@orbit.dev`,
+      membershipTier: "Core",
+      role,
+      avatarFallback: role.slice(0, 2).toUpperCase(),
+    },
+  };
+}
 
 const eventPayload = {
   id: "design-systems-review",
@@ -47,12 +52,16 @@ const eventPayload = {
   ],
 };
 
-function renderEventDetail(initialPath = "/events/design-systems-review") {
+function renderEventDetail(
+  initialPath = "/events/design-systems-review",
+  session: AuthSession = createSession(),
+) {
   return render(
-    <AppProviders initialSession={demoSession}>
+    <AppProviders initialSession={session}>
       <MemoryRouter initialEntries={[initialPath]}>
         <Routes>
           <Route path="/events/:eventId" element={<EventDetailPage />} />
+          <Route path="/events" element={<div>Events route</div>} />
         </Routes>
       </MemoryRouter>
     </AppProviders>,
@@ -124,5 +133,81 @@ describe("EventDetailPage", () => {
 
     await screen.findByRole("heading", { name: /design systems review/i });
     expect(screen.getByRole("button", { name: /leave event/i })).toBeInTheDocument();
+  });
+
+  it("updates the attendee count and button label after joining", async () => {
+    vi.spyOn(getEventDetailApi, "getEventDetail")
+      .mockResolvedValueOnce(eventPayload as never)
+      .mockResolvedValue({
+        ...eventPayload,
+        isJoined: true,
+        attendeeCount: eventPayload.attendeeCount + 1,
+      } as never);
+    vi.spyOn(joinEventApi, "joinEvent").mockResolvedValue(undefined);
+    const user = userEvent.setup();
+
+    renderEventDetail();
+
+    await screen.findByRole("heading", { name: /design systems review/i });
+    await user.click(screen.getByRole("button", { name: /join event/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /leave event/i })).toBeInTheDocument();
+      expect(screen.getAllByText(/185 attendees/i).length).toBeGreaterThan(0);
+    });
+  });
+
+  it("shows the delete event action for moderators", async () => {
+    vi.spyOn(getEventDetailApi, "getEventDetail").mockResolvedValue(eventPayload as never);
+
+    renderEventDetail("/events/design-systems-review", createSession("moderator"));
+
+    await screen.findByRole("heading", { name: /design systems review/i });
+    expect(screen.getByRole("button", { name: /delete event/i })).toBeInTheDocument();
+  });
+
+  it("hides the delete event action for regular users", async () => {
+    vi.spyOn(getEventDetailApi, "getEventDetail").mockResolvedValue(eventPayload as never);
+
+    renderEventDetail("/events/design-systems-review", createSession("user"));
+
+    await screen.findByRole("heading", { name: /design systems review/i });
+    expect(screen.queryByRole("button", { name: /delete event/i })).not.toBeInTheDocument();
+  });
+
+  it("opens a confirmation state before deleting the event", async () => {
+    vi.spyOn(getEventDetailApi, "getEventDetail").mockResolvedValue(eventPayload as never);
+    const user = userEvent.setup();
+
+    renderEventDetail("/events/design-systems-review", createSession("admin"));
+
+    await screen.findByRole("heading", { name: /design systems review/i });
+    await user.click(screen.getByRole("button", { name: /delete event/i }));
+
+    const confirmCard = screen.getByRole("alertdialog", { name: /delete this event\?/i });
+
+    expect(within(confirmCard).getByRole("button", { name: /^delete event$/i })).toBeInTheDocument();
+  });
+
+  it("surfaces delete permission errors without crashing", async () => {
+    vi.spyOn(getEventDetailApi, "getEventDetail").mockResolvedValue(eventPayload as never);
+    vi.spyOn(deleteEventApi, "deleteEvent").mockRejectedValue(
+      new Error("You don't have permission to delete this event"),
+    );
+    const user = userEvent.setup();
+
+    renderEventDetail("/events/design-systems-review", createSession("moderator"));
+
+    await screen.findByRole("heading", { name: /design systems review/i });
+    await user.click(screen.getByRole("button", { name: /delete event/i }));
+    const confirmCard = screen.getByRole("alertdialog", { name: /delete this event\?/i });
+
+    await user.click(
+      within(confirmCard).getByRole("button", { name: /^delete event$/i }),
+    );
+
+    expect(
+      await screen.findByText(/you don't have permission to delete this event/i),
+    ).toBeInTheDocument();
   });
 });

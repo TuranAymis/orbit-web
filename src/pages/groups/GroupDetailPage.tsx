@@ -1,15 +1,21 @@
 import { useMemo, useState } from "react";
-import { ArrowRight, RefreshCw } from "lucide-react";
-import { useParams, Link } from "react-router-dom";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useDeleteGroup } from "@/features/groups/delete-group/model/useDeleteGroup";
 import { useGroupDetail } from "@/features/groups/get-group-detail/model/useGroupDetail";
+import { useMutationFeedback } from "@/shared/lib/mutations/useMutationFeedback";
+import { useAuth } from "@/features/auth/useAuth";
+import { canCreateEvent, canDeleteGroup } from "@/shared/lib/access/permissions";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
+import { InlineConfirmCard } from "@/shared/ui/InlineConfirmCard";
 import { GroupAboutPanel } from "@/widgets/group-detail/GroupAboutPanel";
 import { GroupDetailLayout } from "@/widgets/group-detail/GroupDetailLayout";
 import {
   GroupDetailTabs,
   type GroupDetailTabId,
 } from "@/widgets/group-detail/GroupDetailTabs";
+import { GroupChatPreview } from "@/widgets/group-detail/GroupChatPreview";
 import { GroupEventsPreview } from "@/widgets/group-detail/GroupEventsPreview";
 import { GroupGalleryPreview } from "@/widgets/group-detail/GroupGalleryPreview";
 
@@ -53,30 +59,16 @@ function GroupDetailErrorState({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-function GroupChatEntryCard({ groupId }: { groupId: string }) {
-  return (
-    <Card className="border-white/10 bg-white/[0.03]">
-      <CardContent className="space-y-4">
-        <h3 className="text-lg font-semibold text-foreground">Group chat entry</h3>
-        <p className="text-sm leading-7 text-muted-foreground">
-          Group chat stays part of the shared chat system. This tab acts as the handoff
-          point into that experience without embedding a second chat surface here.
-        </p>
-        <Link
-          to={`/chat?groupId=${encodeURIComponent(groupId)}`}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-white/10 bg-transparent px-4 py-2 text-sm font-medium text-foreground transition hover:bg-white/5"
-        >
-          Open group chat
-          <ArrowRight className="h-4 w-4" />
-        </Link>
-      </CardContent>
-    </Card>
-  );
+function isGroupDetailTab(value: string | null): value is GroupDetailTabId {
+  return value === "about" || value === "events" || value === "gallery" || value === "chat";
 }
 
 export function GroupDetailPage() {
+  const navigate = useNavigate();
   const { groupId } = useParams<{ groupId: string }>();
-  const [activeTab, setActiveTab] = useState<GroupDetailTabId>("about");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const { user } = useAuth();
   const {
     data,
     isLoading,
@@ -84,7 +76,16 @@ export function GroupDetailPage() {
     refetch,
     toggleMembership,
     isMutatingMembership,
+    membershipError,
   } = useGroupDetail(groupId);
+  const deleteGroupMutation = useDeleteGroup(groupId);
+  const { message, clearMessage } = useMutationFeedback(
+    deleteGroupMutation.error ?? membershipError,
+  );
+  const requestedTab = searchParams.get("tab");
+  const activeTab: GroupDetailTabId = isGroupDetailTab(requestedTab)
+    ? requestedTab
+    : "about";
 
   const tabContent = useMemo(() => {
     if (!data) {
@@ -99,7 +100,7 @@ export function GroupDetailPage() {
       case "gallery":
         return <GroupGalleryPreview group={data} />;
       case "chat":
-        return <GroupChatEntryCard groupId={data.id} />;
+        return <GroupChatPreview group={data} />;
       default:
         return null;
     }
@@ -115,12 +116,72 @@ export function GroupDetailPage() {
 
   return (
     <div className="space-y-6">
-      <GroupDetailTabs activeTab={activeTab} onChange={setActiveTab} />
+      {message ? (
+        <Card className="border-destructive/40 bg-destructive/10">
+          <CardContent className="flex flex-col items-start gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-foreground">{message}</p>
+            <Button variant="outline" size="sm" onClick={clearMessage}>
+              Dismiss
+            </Button>
+          </CardContent>
+        </Card>
+        ) : null}
+      {isConfirmingDelete ? (
+        <InlineConfirmCard
+          title="Delete this group?"
+          description="This permanently removes the group from Orbit. The backend will still enforce admin-only deletion."
+          confirmLabel="Delete group"
+          isConfirming={deleteGroupMutation.isPending}
+          onCancel={() => setIsConfirmingDelete(false)}
+          onConfirm={() => {
+            void (async () => {
+              try {
+                await deleteGroupMutation.mutateAsync();
+              } catch {
+                return;
+              }
+
+              setIsConfirmingDelete(false);
+              navigate("/groups");
+            })();
+          }}
+          icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
+        />
+      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <GroupDetailTabs
+          activeTab={activeTab}
+          onChange={(nextTab) => {
+            const nextSearchParams = new URLSearchParams(searchParams);
+            nextSearchParams.set("tab", nextTab);
+            setSearchParams(nextSearchParams, { replace: true });
+          }}
+        />
+        {canCreateEvent(user) ? (
+          <Link
+            to={`/events/create?groupId=${encodeURIComponent(data.id)}`}
+            className="inline-flex h-10 items-center justify-center rounded-md border border-white/10 bg-transparent px-4 py-2 text-sm font-medium text-foreground transition hover:bg-white/5"
+          >
+            Create event for this group
+          </Link>
+        ) : null}
+      </div>
       <GroupDetailLayout
         group={data}
         isMutatingMembership={isMutatingMembership}
         onToggleMembership={() => void toggleMembership()}
         mainContent={tabContent}
+        heroActions={
+          canDeleteGroup(user) ? (
+            <Button
+              variant="outline"
+              className="border-destructive/30 text-destructive hover:bg-destructive/10"
+              onClick={() => setIsConfirmingDelete(true)}
+            >
+              Delete Group
+            </Button>
+          ) : null
+        }
       />
     </div>
   );

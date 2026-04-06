@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { MapPin, ShieldCheck, UsersRound } from "lucide-react";
 import type { GroupDetail } from "@/entities/group/model/types";
 import { Button } from "@/shared/ui/button";
@@ -7,12 +8,14 @@ interface GroupHeroCardProps {
   group: GroupDetail;
   isMutating?: boolean;
   onToggleMembership: () => void;
+  actions?: ReactNode;
 }
 
 export function GroupHeroCard({
   group,
   isMutating = false,
   onToggleMembership,
+  actions,
 }: GroupHeroCardProps) {
   return (
     <Card className="overflow-hidden border-white/10 bg-white/[0.03]">
@@ -58,20 +61,23 @@ export function GroupHeroCard({
               </span>
             </div>
           </div>
-          <Button
-            className="min-w-40 justify-center"
-            variant={group.isJoined ? "secondary" : "default"}
-            disabled={isMutating}
-            onClick={onToggleMembership}
-          >
-            {isMutating
-              ? group.isJoined
-                ? "Leaving..."
-                : "Joining..."
-              : group.isJoined
-                ? "Leave Group"
-                : "Join Group"}
-          </Button>
+          <div className="flex flex-col items-stretch gap-3 sm:min-w-40">
+            <Button
+              className="justify-center"
+              variant={group.isJoined ? "secondary" : "default"}
+              disabled={isMutating}
+              onClick={onToggleMembership}
+            >
+              {isMutating
+                ? group.isJoined
+                  ? "Leaving..."
+                  : "Joining..."
+                : group.isJoined
+                  ? "Leave Group"
+                  : "Join Group"}
+            </Button>
+            {actions}
+          </div>
         </div>
       </CardContent>
     </Card>

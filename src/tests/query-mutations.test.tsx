@@ -5,8 +5,16 @@ import { AppProviders } from "@/app/providers/AppProviders";
 import type { EventDetail, EventListItem } from "@/entities/event/model/types";
 import type { GroupDetail } from "@/entities/group/model/types";
 import { useEventDetail } from "@/features/events/get-event-detail/model/useEventDetail";
+import { useCreateEvent } from "@/features/events/create-event/model/useCreateEvent";
+import * as createEventApi from "@/features/events/create-event/api/createEvent";
+import { useDeleteEvent } from "@/features/events/delete-event/model/useDeleteEvent";
+import * as deleteEventApi from "@/features/events/delete-event/api/deleteEvent";
 import * as eventDetailApi from "@/features/events/get-event-detail/api/getEventDetail";
 import * as joinEventApi from "@/features/events/join-event/api/joinEvent";
+import { useCreateGroup } from "@/features/groups/create-group/model/useCreateGroup";
+import * as createGroupApi from "@/features/groups/create-group/api/createGroup";
+import { useDeleteGroup } from "@/features/groups/delete-group/model/useDeleteGroup";
+import * as deleteGroupApi from "@/features/groups/delete-group/api/deleteGroup";
 import { useGroupDetail } from "@/features/groups/get-group-detail/model/useGroupDetail";
 import * as groupDetailApi from "@/features/groups/get-group-detail/api/getGroupDetail";
 import * as joinGroupApi from "@/features/groups/join-group/api/joinGroup";
@@ -68,8 +76,17 @@ describe("query-backed mutations", () => {
   it("invalidates group detail and discover after joining a group", async () => {
     const { queryClient, Wrapper } = createWrapper();
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const groupListItem = {
+      id: groupDetail.id,
+      name: groupDetail.name,
+      description: groupDetail.description,
+      memberCount: groupDetail.memberCount,
+      imageUrl: groupDetail.coverImageUrl,
+      isJoined: false,
+    };
 
     queryClient.setQueryData(orbitQueryKeys.groups.detail(groupDetail.id), groupDetail);
+    queryClient.setQueryData(orbitQueryKeys.groups.all, [groupListItem]);
     vi.spyOn(groupDetailApi, "getGroupDetail").mockResolvedValue({
       ...groupDetail,
       isJoined: true,
@@ -88,6 +105,11 @@ describe("query-backed mutations", () => {
     await result.current.toggleMembership();
 
     await waitFor(() => {
+      expect(result.current.data?.isJoined).toBe(true);
+      expect(result.current.data?.memberCount).toBe(groupDetail.memberCount + 1);
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.groups.all,
+      });
       expect(invalidateSpy).toHaveBeenCalledWith({
         queryKey: orbitQueryKeys.groups.detail(groupDetail.id),
       });
@@ -141,11 +163,157 @@ describe("query-backed mutations", () => {
     await result.current.toggleAttendance();
 
     await waitFor(() => {
+      expect(result.current.data?.isJoined).toBe(true);
+      expect(result.current.data?.attendeeCount).toBe(eventDetail.attendeeCount + 1);
+      expect(
+        queryClient.getQueryData<EventListItem[]>(orbitQueryKeys.events.all)?.[0],
+      ).toMatchObject({
+        isJoined: true,
+        attendeeCount: eventDetail.attendeeCount + 1,
+      });
+      expect(
+        queryClient.getQueryData<DiscoverFeed>(orbitQueryKeys.discover.feed)?.events[0],
+      ).toMatchObject({
+        isJoined: true,
+        attendeeCount: eventDetail.attendeeCount + 1,
+      });
       expect(invalidateSpy).toHaveBeenCalledWith({
         queryKey: orbitQueryKeys.events.detail(eventDetail.id),
       });
       expect(invalidateSpy).toHaveBeenCalledWith({
         queryKey: orbitQueryKeys.events.all,
+      });
+    });
+  });
+
+  it("invalidates groups and discover after creating a group", async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    vi.spyOn(createGroupApi, "createGroup").mockResolvedValue({
+      id: "group_42",
+      ownerId: "admin_1",
+      name: "Orbit Builders",
+      description: "A new community",
+      coverImageUrl: null,
+      category: "Engineering",
+      location: "Remote-first",
+      createdAt: "2026-04-06T12:00:00.000Z",
+      updatedAt: "2026-04-06T12:00:00.000Z",
+    });
+
+    const { result } = renderHook(() => useCreateGroup(), {
+      wrapper: Wrapper,
+    });
+
+    await result.current.mutateAsync({
+      name: "Orbit Builders",
+      description: "A new community",
+      category: "Engineering",
+      location: "Remote-first",
+    });
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.groups.all,
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.discover.feed,
+      });
+    });
+  });
+
+  it("invalidates events, group detail, and discover after creating an event", async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    vi.spyOn(createEventApi, "createEvent").mockResolvedValue({
+      id: "event_42",
+      groupId: groupDetail.id,
+      title: "Orbit Launch Review",
+    });
+
+    const { result } = renderHook(() => useCreateEvent(), {
+      wrapper: Wrapper,
+    });
+
+    await result.current.mutateAsync({
+      groupId: groupDetail.id,
+      title: "Orbit Launch Review",
+      description: "Rollout planning and QA review.",
+      location: "Orbit Live Room",
+      startsAt: "2026-04-08T18:00",
+      endsAt: "2026-04-08T19:00",
+    });
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.events.all,
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.events.detail("event_42"),
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.groups.detail(groupDetail.id),
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.discover.feed,
+      });
+    });
+  });
+
+  it("invalidates groups and discover after deleting a group", async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    vi.spyOn(deleteGroupApi, "deleteGroup").mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useDeleteGroup(groupDetail.id), {
+      wrapper: Wrapper,
+    });
+
+    await result.current.mutateAsync();
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.groups.all,
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.groups.detail(groupDetail.id),
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.discover.feed,
+      });
+    });
+  });
+
+  it("invalidates events, event detail, discover, and group detail after deleting an event", async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    vi.spyOn(deleteEventApi, "deleteEvent").mockResolvedValue(undefined);
+
+    const { result } = renderHook(
+      () => useDeleteEvent({ eventId: eventDetail.id, groupId: groupDetail.id }),
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    await result.current.mutateAsync();
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.events.all,
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.events.detail(eventDetail.id),
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.discover.feed,
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.groups.detail(groupDetail.id),
       });
     });
   });

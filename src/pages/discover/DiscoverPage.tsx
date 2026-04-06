@@ -9,6 +9,8 @@ import {
   useDiscoverFeed,
   type DiscoverTrendItem,
 } from "@/features/discover/get-discover-feed/model/useDiscoverFeed";
+import { useJoinGroup } from "@/features/groups/join-group/model/useJoinGroup";
+import { useMutationFeedback } from "@/shared/lib/mutations/useMutationFeedback";
 import { cn } from "@/lib/utils";
 
 type DiscoverTab = "groups" | "events" | "trending";
@@ -159,6 +161,8 @@ function TrendingGrid({ items }: { items: DiscoverTrendItem[] }) {
 export function DiscoverPage() {
   const [activeTab, setActiveTab] = useState<DiscoverTab>("groups");
   const { groups, events, trending, isLoading, error, refetch } = useDiscoverFeed();
+  const joinGroupMutation = useJoinGroup();
+  const { message, clearMessage } = useMutationFeedback(joinGroupMutation.error);
 
   const activeCount = useMemo(() => {
     if (activeTab === "groups") {
@@ -183,6 +187,16 @@ export function DiscoverPage() {
       }
     >
       <div className="space-y-6">
+        {message ? (
+          <section className="rounded-2xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-foreground">
+            <div className="flex items-center justify-between gap-4">
+              <span>{message}</span>
+              <Button variant="ghost" size="sm" onClick={clearMessage}>
+                Dismiss
+              </Button>
+            </div>
+          </section>
+        ) : null}
         <div
           role="tablist"
           aria-label="Discover sections"
@@ -239,7 +253,11 @@ export function DiscoverPage() {
               onBrowseEvents={() => setActiveTab("events")}
             />
           ) : (
-            <GroupGrid groups={groups} />
+            <GroupGrid
+              groups={groups}
+              joiningGroupId={joinGroupMutation.pendingGroupId}
+              onJoinGroup={(groupId) => void joinGroupMutation.joinById(groupId)}
+            />
           )
         ) : activeTab === "events" ? (
           events.length === 0 ? (

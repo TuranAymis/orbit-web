@@ -6,7 +6,9 @@ import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 interface UseGroupsResult {
   data: Group[];
   isLoading: boolean;
+  error: Error | null;
   isEmpty: boolean;
+  refetch: () => Promise<void>;
 }
 
 export function useGroups(): UseGroupsResult {
@@ -17,10 +19,15 @@ export function useGroups(): UseGroupsResult {
 
   const data = query.data ?? [];
   const isLoading = query.isLoading;
+  const error = query.error instanceof Error ? query.error : null;
 
   return {
     data,
     isLoading,
-    isEmpty: !isLoading && data.length === 0,
+    error,
+    isEmpty: !isLoading && !error && data.length === 0,
+    refetch: async () => {
+      await query.refetch();
+    },
   };
 }

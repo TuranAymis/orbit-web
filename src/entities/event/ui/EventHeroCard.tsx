@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { CalendarDays, MapPin, UserRound, Users } from "lucide-react";
 import type { EventDetail } from "@/entities/event/model/types";
 import { Button } from "@/shared/ui/button";
@@ -7,12 +8,14 @@ interface EventHeroCardProps {
   event: EventDetail;
   isMutating?: boolean;
   onToggleJoin: () => void;
+  actions?: ReactNode;
 }
 
 export function EventHeroCard({
   event,
   isMutating = false,
   onToggleJoin,
+  actions,
 }: EventHeroCardProps) {
   return (
     <Card className="overflow-hidden border-white/10 bg-white/[0.03]">
@@ -64,20 +67,23 @@ export function EventHeroCard({
               </span>
             </div>
           </div>
-          <Button
-            className="min-w-40 justify-center"
-            variant={event.isJoined ? "secondary" : "default"}
-            disabled={isMutating}
-            onClick={onToggleJoin}
-          >
-            {isMutating
-              ? event.isJoined
-                ? "Leaving..."
-                : "Joining..."
-              : event.isJoined
-                ? "Leave Event"
-                : "Join Event"}
-          </Button>
+          <div className="flex flex-col items-stretch gap-3 sm:min-w-40">
+            <Button
+              className="justify-center"
+              variant={event.isJoined ? "secondary" : "default"}
+              disabled={isMutating}
+              onClick={onToggleJoin}
+            >
+              {isMutating
+                ? event.isJoined
+                  ? "Leaving..."
+                  : "Joining..."
+                : event.isJoined
+                  ? "Leave Event"
+                  : "Join Event"}
+            </Button>
+            {actions}
+          </div>
         </div>
       </CardContent>
     </Card>

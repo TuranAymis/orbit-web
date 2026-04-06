@@ -14,6 +14,7 @@ import type { AuthSession, LoginCredentials } from "@/features/auth/types";
 interface AuthContextValue {
   session: AuthSession | null;
   user: AuthSession["user"] | null;
+  role: AuthSession["user"]["role"] | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
@@ -67,6 +68,7 @@ export function AuthProvider({
     () => ({
       session,
       user: session?.user ?? null,
+      role: session?.user.role ?? null,
       isLoading,
       isAuthenticated: Boolean(session?.isAuthenticated),
       login,

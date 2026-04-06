@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AppProviders } from "@/app/providers/AppProviders";
 import { DiscoverPage } from "@/pages/discover/DiscoverPage";
 import type { Group } from "@/entities/group/model/types";
 import type { EventListItem } from "@/entities/event/model/types";
@@ -46,9 +47,11 @@ const mockTrending = [
 
 function renderDiscoverPage() {
   return render(
-    <MemoryRouter>
-      <DiscoverPage />
-    </MemoryRouter>,
+    <AppProviders>
+      <MemoryRouter>
+        <DiscoverPage />
+      </MemoryRouter>
+    </AppProviders>,
   );
 }
 

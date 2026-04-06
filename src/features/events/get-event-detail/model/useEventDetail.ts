@@ -14,6 +14,7 @@ interface UseEventDetailResult {
   refetch: () => Promise<void>;
   toggleAttendance: () => Promise<void>;
   isMutatingAttendance: boolean;
+  attendanceError: Error | null;
 }
 
 export function useEventDetail(eventId?: string): UseEventDetailResult {
@@ -165,5 +166,6 @@ export function useEventDetail(eventId?: string): UseEventDetailResult {
       await mutation.mutateAsync(!data.isJoined);
     },
     isMutatingAttendance: mutation.isPending,
+    attendanceError: mutation.error instanceof Error ? mutation.error : null,
   };
 }

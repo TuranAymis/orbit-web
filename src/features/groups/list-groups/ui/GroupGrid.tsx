@@ -5,6 +5,8 @@ interface GroupGridProps {
   groups: Group[];
   isLoading?: boolean;
   isEmpty?: boolean;
+  onJoinGroup?: (groupId: string) => void;
+  joiningGroupId?: string | null;
 }
 
 function GroupGridSkeleton() {
@@ -46,6 +48,8 @@ export function GroupGrid({
   groups,
   isLoading = false,
   isEmpty = false,
+  onJoinGroup,
+  joiningGroupId = null,
 }: GroupGridProps) {
   if (isLoading) {
     return <GroupGridSkeleton />;
@@ -58,7 +62,12 @@ export function GroupGrid({
   return (
     <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
       {groups.map((group) => (
-        <GroupCard key={group.id} group={group} />
+        <GroupCard
+          key={group.id}
+          group={group}
+          onJoinGroup={onJoinGroup}
+          isJoining={joiningGroupId === group.id}
+        />
       ))}
     </div>
   );

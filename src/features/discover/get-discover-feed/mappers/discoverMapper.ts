@@ -7,8 +7,13 @@ interface GroupListResponseItem {
   name: string;
   description?: string;
   imageUrl?: string;
+  image_url?: string;
   coverImageUrl?: string;
+  cover_image_url?: string;
   memberCount?: number;
+  member_count?: number;
+  isJoined?: boolean;
+  is_joined?: boolean;
 }
 
 interface DiscoverTrendItemResponse {
@@ -69,11 +74,14 @@ function mapGroupListResponse(payload: unknown): Group[] {
       id: group.id ?? `group_${index}`,
       name: group.name ?? "Orbit Group",
       description: group.description ?? "No group description available yet.",
-      memberCount: group.memberCount ?? 0,
+      memberCount: group.memberCount ?? group.member_count ?? 0,
       imageUrl:
         group.imageUrl ??
+        group.image_url ??
         group.coverImageUrl ??
+        group.cover_image_url ??
         "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+      isJoined: group.isJoined ?? group.is_joined ?? false,
     };
   });
 }

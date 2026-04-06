@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers/AppProviders";
 import { EventsPage } from "@/pages/events/EventsPage";
+import type { AuthSession, OrbitUserRole } from "@/features/auth/types";
 import * as listEventsApi from "@/features/events/list-events/api/listEvents";
 
 const eventsPayload = [
@@ -23,9 +24,23 @@ const eventsPayload = [
   },
 ];
 
-function renderEventsPage() {
+function createSession(role: OrbitUserRole): AuthSession {
+  return {
+    isAuthenticated: true,
+    user: {
+      id: `user_${role}`,
+      name: `${role} orbit`,
+      email: `${role}@orbit.dev`,
+      membershipTier: "Core",
+      role,
+      avatarFallback: role.slice(0, 2).toUpperCase(),
+    },
+  };
+}
+
+function renderEventsPage(session?: AuthSession | null) {
   return render(
-    <AppProviders>
+    <AppProviders initialSession={session}>
       <MemoryRouter>
         <EventsPage />
       </MemoryRouter>
@@ -50,6 +65,23 @@ describe("EventsPage", () => {
     });
 
     expect(screen.getByText(/orbit live room/i)).toBeInTheDocument();
+  });
+
+  it("shows the create event action for admins and moderators", async () => {
+    vi.spyOn(listEventsApi, "listEvents").mockResolvedValue(eventsPayload as never);
+
+    renderEventsPage(createSession("moderator"));
+
+    expect(await screen.findByRole("link", { name: /create event/i })).toBeInTheDocument();
+  });
+
+  it("hides the create event action for regular users", async () => {
+    vi.spyOn(listEventsApi, "listEvents").mockResolvedValue(eventsPayload as never);
+
+    renderEventsPage(createSession("user"));
+
+    await screen.findByRole("heading", { name: /design systems review/i });
+    expect(screen.queryByRole("link", { name: /create event/i })).not.toBeInTheDocument();
   });
 
   it("renders a loading state while fetching", () => {

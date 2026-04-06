@@ -4,6 +4,7 @@ export interface Group {
   description: string;
   memberCount: number;
   imageUrl: string;
+  isJoined?: boolean;
 }
 
 export interface GroupStatSummary {

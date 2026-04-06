@@ -12,6 +12,7 @@ interface UseGroupDetailResult {
   refetch: () => Promise<void>;
   toggleMembership: () => Promise<void>;
   isMutatingMembership: boolean;
+  membershipError: Error | null;
 }
 
 export function useGroupDetail(groupId?: string): UseGroupDetailResult {
@@ -76,6 +77,9 @@ export function useGroupDetail(groupId?: string): UseGroupDetailResult {
 
       await Promise.all([
         queryClient.invalidateQueries({
+          queryKey: orbitQueryKeys.groups.all,
+        }),
+        queryClient.invalidateQueries({
           queryKey: orbitQueryKeys.groups.detail(groupId),
         }),
         queryClient.invalidateQueries({
@@ -107,5 +111,6 @@ export function useGroupDetail(groupId?: string): UseGroupDetailResult {
       await mutation.mutateAsync(!data.isJoined);
     },
     isMutatingMembership: mutation.isPending,
+    membershipError: mutation.error instanceof Error ? mutation.error : null,
   };
 }

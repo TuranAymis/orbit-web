@@ -1,8 +1,11 @@
+export type OrbitUserRole = "user" | "moderator" | "admin";
+
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
   membershipTier: string;
+  role: OrbitUserRole;
   avatarFallback: string;
 }
 

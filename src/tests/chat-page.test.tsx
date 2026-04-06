@@ -12,6 +12,7 @@ const demoSession: AuthSession = {
     name: "Demo Orbit",
     email: "demo@orbit.dev",
     membershipTier: "Core",
+    role: "user",
     avatarFallback: "DO",
   },
 };

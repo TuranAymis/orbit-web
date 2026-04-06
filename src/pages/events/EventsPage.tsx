@@ -1,3 +1,6 @@
+import { Link } from "react-router-dom";
+import { useAuth } from "@/features/auth/useAuth";
+import { canCreateEvent } from "@/shared/lib/access/permissions";
 import { Button } from "@/shared/ui/button";
 import { PageContainer } from "@/shared/ui/page-container";
 import { useEvents } from "@/features/events/list-events/model/useEvents";
@@ -7,13 +10,28 @@ import { EventGrid } from "@/widgets/event-list/EventGrid";
 import { EventListFilters } from "@/widgets/event-list/EventListFilters";
 
 export function EventsPage() {
+  const { user } = useAuth();
   const { data, isLoading, error, isEmpty, refetch } = useEvents();
 
   return (
     <PageContainer
       title="Community Events"
       subtitle="Discover upcoming sessions, community launches, and live experiences across Orbit."
-      actions={<Button variant="outline">Create event</Button>}
+      actions={
+        <div className="flex items-center gap-3">
+          {canCreateEvent(user) ? (
+            <Link
+              to="/events/create"
+              className="inline-flex h-10 items-center justify-center rounded-md border border-white/10 bg-transparent px-4 py-2 text-sm font-medium text-foreground transition hover:bg-white/5"
+            >
+              Create event
+            </Link>
+          ) : null}
+          <Button variant="outline" onClick={() => void refetch()}>
+            Refresh events
+          </Button>
+        </div>
+      }
     >
       <div className="space-y-6">
         <EventListFilters />
