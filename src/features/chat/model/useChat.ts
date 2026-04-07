@@ -1,17 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Channel, Member, Message } from "@/entities/message/model/types";
 import { appConfig } from "@/config/appConfig";
 import { useAuth } from "@/features/auth/useAuth";
 import type {
   ChatConnectionStatus,
   ChatTransport,
+  ChatTypingEvent,
   TransportOutgoingMessage,
 } from "@/features/chat/transport/chatTransport";
 import { createHttpChatTransport } from "@/features/chat/transport/httpChatTransport";
+import {
+  defaultChatPreferences,
+  readChatPreferences,
+  updateChatPreferences,
+  type ChatPreferences,
+} from "@/features/chat/model/chatPreferences";
 import { createMockChatTransport } from "@/features/chat/transport/mockChatTransport";
+import { withMentionStateForIdentity } from "@/features/chat/model/mentions";
 import { createSocketChatTransport } from "@/features/chat/transport/socketChatTransport";
 import { listGroups } from "@/features/groups/list-groups/api/listGroups";
 import { httpClient } from "@/shared/lib/http/httpClient";
+import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 
 const mockChannels: Channel[] = [
   { id: "channel_general", name: "general", kind: "channel", unreadCount: 2 },
@@ -110,51 +120,13 @@ const mockMessages: Message[] = [
   },
 ];
 
-type MessagesByChannel = Record<string, Message[]>;
-
-function createInitialMessagesByChannel(messages: Message[]): MessagesByChannel {
-  return messages.reduce<MessagesByChannel>((accumulator, message) => {
-    accumulator[message.channelId] = [...(accumulator[message.channelId] ?? []), message];
-    return accumulator;
-  }, {});
-}
-
-function appendMessage(
-  messageMap: MessagesByChannel,
-  message: Message,
-): MessagesByChannel {
-  const channelMessages = messageMap[message.channelId] ?? [];
-
-  if (
-    channelMessages.some(
-      (existingMessage) =>
-        existingMessage.clientMessageId === message.clientMessageId ||
-        (message.serverMessageId &&
-          existingMessage.serverMessageId === message.serverMessageId),
-    )
-  ) {
-    return messageMap;
-  }
-
-  return {
-    ...messageMap,
-    [message.channelId]: [...channelMessages, message],
-  };
-}
-
-function reconcileMessage(
-  messageMap: MessagesByChannel,
-  clientMessageId: string,
-  updater: (message: Message) => Message,
-): MessagesByChannel {
-  const nextEntries = Object.entries(messageMap).map(([channelId, messages]) => [
-    channelId,
-    messages.map((message) =>
-      message.clientMessageId === clientMessageId ? updater(message) : message,
-    ),
-  ]);
-
-  return Object.fromEntries(nextEntries);
+interface BackendChatResponse {
+  id: string;
+  sender_id: string;
+  group_id?: string | null;
+  event_id?: string | null;
+  message: string;
+  created_at: string;
 }
 
 interface UseChatResult {
@@ -169,6 +141,10 @@ interface UseChatResult {
   draft: string;
   setDraft: (draft: string) => void;
   isEmpty: boolean;
+  typingLabel: string | null;
+  toggleMuteChannel: (channelId: string) => void;
+  isActiveChannelMuted: boolean;
+  readStateLabel: string;
 }
 
 interface UseChatOptions {
@@ -176,7 +152,91 @@ interface UseChatOptions {
   preferredChannelId?: string | null;
 }
 
-function createDefaultChatTransport() {
+function getMessageIdentity(message: Pick<Message, "id" | "clientMessageId" | "serverMessageId">) {
+  return message.serverMessageId ?? message.id ?? message.clientMessageId;
+}
+
+function appendMessage(messages: Message[], message: Message): Message[] {
+  const incomingIdentity = getMessageIdentity(message);
+
+  if (
+    messages.some(
+      (existingMessage) =>
+        getMessageIdentity(existingMessage) === incomingIdentity ||
+        existingMessage.id === message.id ||
+        existingMessage.clientMessageId === message.clientMessageId ||
+        (message.serverMessageId &&
+          existingMessage.serverMessageId === message.serverMessageId),
+    )
+  ) {
+    return messages;
+  }
+
+  return [...messages, message];
+}
+
+function reconcileMessage(
+  messages: Message[],
+  clientMessageId: string,
+  updater: (message: Message) => Message,
+): Message[] {
+  return messages.map((message) =>
+    message.clientMessageId === clientMessageId ? updater(message) : message,
+  );
+}
+
+function setConversationUnread(
+  conversations: Channel[],
+  channelId: string,
+  updater: (currentChannel: Channel) => Partial<Channel>,
+) {
+  return conversations.map((channel) =>
+    channel.id === channelId
+      ? {
+          ...channel,
+          ...updater(channel),
+        }
+      : channel,
+  );
+}
+
+function syncChatUnreadCount(queryClient: ReturnType<typeof useQueryClient>, conversations: Channel[]) {
+  queryClient.setQueryData(
+    orbitQueryKeys.chat.unreadCount,
+    conversations.reduce((total, channel) => total + (channel.unreadCount ?? 0), 0),
+  );
+}
+
+function mapBackendMessages(
+  payload: BackendChatResponse[],
+  channelId: string,
+  currentUser?: {
+    id: string;
+    name: string;
+    avatarFallback: string;
+  } | null,
+): Message[] {
+  return payload
+    .map<Message>((message) => ({
+      id: message.id,
+      clientMessageId: message.id,
+      serverMessageId: message.id,
+      channelId: message.group_id ?? message.event_id ?? channelId,
+      userId: message.sender_id,
+      username:
+        message.sender_id === currentUser?.id ? currentUser.name : "Orbit Member",
+      avatarFallback:
+        message.sender_id === currentUser?.id ? currentUser.avatarFallback : "OM",
+      content: message.message,
+      createdAt: message.created_at,
+      type: "text",
+      status: "sent",
+      canRetry: false,
+    }))
+    .map((message) => withMentionStateForIdentity(message, currentUser));
+}
+
+function createDefaultChatTransport(accessToken?: string) {
   if (appConfig.chatTransportMode === "mock") {
     return createMockChatTransport();
   }
@@ -189,31 +249,77 @@ function createDefaultChatTransport() {
     url: appConfig.socketUrl,
     path: appConfig.chatSocketPath,
     namespace: appConfig.chatSocketNamespace,
+    authToken: accessToken,
     sendEvent: appConfig.chatSendEvent,
     messageEvent: appConfig.chatMessageEvent,
+    joinRoomEvent: appConfig.chatJoinRoomEvent,
+    leaveRoomEvent: appConfig.chatLeaveRoomEvent,
+    typingEvent: appConfig.chatTypingEvent,
+    typingStartEvent: appConfig.chatTypingStartEvent,
+    typingStopEvent: appConfig.chatTypingStopEvent,
     ackTimeoutMs: appConfig.chatAckTimeoutMs,
   });
 }
 
 export function useChat(options: UseChatOptions = {}): UseChatResult {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
+  const queryClient = useQueryClient();
   const isExternalTransport = Boolean(options.transport);
   const usesSeedData = isExternalTransport || appConfig.chatTransportMode === "mock";
-  const [channels, setChannels] = useState<Channel[]>(() =>
-    usesSeedData ? mockChannels : [],
-  );
   const [activeChannelId, setActiveChannelId] = useState<string>(
     options.preferredChannelId ?? (usesSeedData ? "channel_general" : ""),
   );
   const [draft, setDraft] = useState("");
   const [connectionStatus, setConnectionStatus] =
     useState<ChatConnectionStatus>("disconnected");
-  const [messagesByChannel, setMessagesByChannel] = useState<MessagesByChannel>(() =>
-    createInitialMessagesByChannel(usesSeedData ? mockMessages : []),
-  );
+  const [typingUsersByChannel, setTypingUsersByChannel] = useState<
+    Record<string, Record<string, string>>
+  >({});
   const transport = useMemo(
-    () => options.transport ?? createDefaultChatTransport(),
-    [options.transport],
+    () => options.transport ?? createDefaultChatTransport(session?.accessToken),
+    [options.transport, session?.accessToken],
+  );
+  const activeChannelIdRef = useRef(activeChannelId);
+  const previousChannelIdRef = useRef<string | null>(null);
+  const typingTimeoutsRef = useRef<Record<string, Record<string, number>>>({});
+  const outgoingTypingTimeoutRef = useRef<number | null>(null);
+  const isTypingRef = useRef(false);
+  const connectionStatusRef = useRef<ChatConnectionStatus>("disconnected");
+  activeChannelIdRef.current = activeChannelId;
+  const chatPreferencesQuery = useQuery({
+    queryKey: orbitQueryKeys.chat.preferences,
+    queryFn: async () => readChatPreferences(),
+    initialData: defaultChatPreferences,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  const chatPreferences = chatPreferencesQuery.data ?? defaultChatPreferences;
+
+  const conversationsQuery = useQuery({
+    queryKey: orbitQueryKeys.chat.conversations,
+    queryFn: async () => {
+      if (usesSeedData) {
+        return mockChannels;
+      }
+
+      const groupList = await listGroups();
+      return groupList.map<Channel>((group) => ({
+        id: group.id,
+        name: group.name.toLowerCase().replace(/\s+/g, "-"),
+        kind: "channel",
+      }));
+    },
+    initialData: usesSeedData ? mockChannels : [],
+    staleTime: 30_000,
+  });
+
+  const channels = useMemo(
+    () =>
+      (conversationsQuery.data ?? []).map((channel) => ({
+        ...channel,
+        isMuted: chatPreferences.mutedChannelIds.includes(channel.id),
+        lastReadAt: chatPreferences.lastReadAtByChannel[channel.id],
+      })),
+    [chatPreferences.lastReadAtByChannel, chatPreferences.mutedChannelIds, conversationsQuery.data],
   );
 
   const activeChannel = useMemo(
@@ -221,135 +327,312 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
     [activeChannelId, channels],
   );
 
-  const messages = useMemo(
-    () => messagesByChannel[activeChannelId] ?? [],
-    [activeChannelId, messagesByChannel],
-  );
+  const messagesQuery = useQuery({
+    queryKey: activeChannelId
+      ? orbitQueryKeys.chat.messages(activeChannelId)
+      : orbitQueryKeys.chat.messages("empty"),
+    enabled: Boolean(activeChannelId),
+    queryFn: async () => {
+      if (!activeChannelId) {
+        return [];
+      }
+
+      if (usesSeedData) {
+        return mockMessages.filter((message) => message.channelId === activeChannelId);
+      }
+
+      const payload = await httpClient.get<BackendChatResponse[]>(
+        `/chats?group_id=${encodeURIComponent(activeChannelId)}`,
+      );
+
+      return mapBackendMessages(payload, activeChannelId, user);
+    },
+    initialData:
+      usesSeedData && activeChannelId
+        ? mockMessages.filter((message) => message.channelId === activeChannelId)
+        : [],
+    staleTime: 15_000,
+  });
+
+  const messages = messagesQuery.data ?? [];
 
   useEffect(() => {
-    if (usesSeedData) {
+    if (
+      options.preferredChannelId &&
+      channels.some((channel) => channel.id === options.preferredChannelId)
+    ) {
+      setActiveChannelId(options.preferredChannelId);
       return;
     }
 
-    let isMounted = true;
+    setActiveChannelId((currentChannelId) => {
+      if (currentChannelId && channels.some((channel) => channel.id === currentChannelId)) {
+        return currentChannelId;
+      }
 
-    void listGroups()
-      .then((groupList) => {
-        if (!isMounted) {
-          return;
-        }
+      return channels[0]?.id ?? "";
+    });
+  }, [channels, options.preferredChannelId]);
 
-        const nextChannels = groupList.map<Channel>((group) => ({
-          id: group.id,
-          name: group.name.toLowerCase().replace(/\s+/g, "-"),
-          kind: "channel",
-        }));
-
-        setChannels(nextChannels);
-        setActiveChannelId((currentChannelId) => {
-          if (
-            options.preferredChannelId &&
-            nextChannels.some((channel) => channel.id === options.preferredChannelId)
-          ) {
-            return options.preferredChannelId;
-          }
-
-          if (currentChannelId && nextChannels.some((channel) => channel.id === currentChannelId)) {
-            return currentChannelId;
-          }
-
-          return nextChannels[0]?.id ?? "";
-        });
-      })
-      .catch(() => {
-        if (isMounted) {
-          setChannels([]);
-          setConnectionStatus("disconnected");
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [options.preferredChannelId, usesSeedData]);
+  useEffect(() => {
+    syncChatUnreadCount(queryClient, channels);
+  }, [channels, queryClient]);
 
   useEffect(() => {
     const unsubscribeConnection = transport.subscribeToConnectionStatus(
-      setConnectionStatus,
+      (status) => {
+        const previousStatus = connectionStatusRef.current;
+        connectionStatusRef.current = status;
+        setConnectionStatus(status);
+
+        if (
+          !usesSeedData &&
+          status === "connected" &&
+          previousStatus !== "connected" &&
+          activeChannelIdRef.current
+        ) {
+          void queryClient.invalidateQueries({
+            queryKey: orbitQueryKeys.chat.messages(activeChannelIdRef.current),
+          });
+        }
+      },
     );
-    const unsubscribe = transport.subscribeToMessages((incomingMessage) => {
-      setMessagesByChannel((currentMessages) =>
-        appendMessage(currentMessages, incomingMessage),
+    const unsubscribeMessages = transport.subscribeToMessages((incomingMessage) => {
+      queryClient.setQueryData<Message[]>(
+        orbitQueryKeys.chat.messages(incomingMessage.channelId),
+        (currentMessages = []) =>
+          appendMessage(currentMessages, withMentionStateForIdentity(incomingMessage, user)),
+      );
+
+      const incomingMessageWithMention = withMentionStateForIdentity(incomingMessage, user);
+
+      if (incomingMessage.channelId !== activeChannelIdRef.current) {
+      queryClient.setQueryData<Channel[]>(
+        orbitQueryKeys.chat.conversations,
+        (currentChannels = []) => {
+          const nextChannels = setConversationUnread(
+            currentChannels,
+              incomingMessage.channelId,
+              (currentChannel) => ({
+                unreadCount: (currentChannel.unreadCount ?? 0) + 1,
+                unreadMentionCount:
+                  (currentChannel.unreadMentionCount ?? 0) +
+                  (incomingMessageWithMention.isMention ? 1 : 0),
+              }),
+            );
+            syncChatUnreadCount(queryClient, nextChannels);
+            return nextChannels;
+          },
+        );
+        return;
+      }
+
+        queryClient.setQueryData<Channel[]>(
+        orbitQueryKeys.chat.conversations,
+        (currentChannels = []) => {
+          const nextChannels = setConversationUnread(
+            currentChannels,
+            incomingMessage.channelId,
+            () => ({
+              unreadCount: 0,
+              unreadMentionCount: 0,
+            }),
+          );
+          syncChatUnreadCount(queryClient, nextChannels);
+          return nextChannels;
+        },
+      );
+
+      const nextPreferences = updateChatPreferences((currentPreferences) => ({
+        ...currentPreferences,
+        lastReadAtByChannel: {
+          ...currentPreferences.lastReadAtByChannel,
+          [incomingMessage.channelId]: incomingMessage.createdAt,
+        },
+      }));
+      queryClient.setQueryData<ChatPreferences>(
+        orbitQueryKeys.chat.preferences,
+        nextPreferences,
       );
     });
+    const unsubscribeTyping = transport.subscribeToTyping((event) => {
+      if (event.userId === user?.id) {
+        return;
+      }
+
+      const currentChannelTimeouts = typingTimeoutsRef.current[event.channelId] ?? {};
+      const currentTimeout = currentChannelTimeouts[event.userId];
+      if (currentTimeout) {
+        window.clearTimeout(currentTimeout);
+      }
+
+      if (!event.isTyping) {
+        if (typingTimeoutsRef.current[event.channelId]) {
+          delete typingTimeoutsRef.current[event.channelId][event.userId];
+        }
+
+        setTypingUsersByChannel((currentTyping) => {
+          const nextTyping = { ...currentTyping };
+          const nextChannelTyping = { ...(nextTyping[event.channelId] ?? {}) };
+          delete nextChannelTyping[event.userId];
+
+          if (Object.keys(nextChannelTyping).length === 0) {
+            delete nextTyping[event.channelId];
+          } else {
+            nextTyping[event.channelId] = nextChannelTyping;
+          }
+
+          return nextTyping;
+        });
+        return;
+      }
+
+      setTypingUsersByChannel((currentTyping) => ({
+        ...currentTyping,
+        [event.channelId]: {
+          ...(currentTyping[event.channelId] ?? {}),
+          [event.userId]: event.username,
+        },
+      }));
+
+      typingTimeoutsRef.current[event.channelId] = {
+        ...currentChannelTimeouts,
+        [event.userId]: window.setTimeout(() => {
+          setTypingUsersByChannel((currentTyping) => {
+            const nextTyping = { ...currentTyping };
+            const nextChannelTyping = { ...(nextTyping[event.channelId] ?? {}) };
+            delete nextChannelTyping[event.userId];
+
+            if (Object.keys(nextChannelTyping).length === 0) {
+              delete nextTyping[event.channelId];
+            } else {
+              nextTyping[event.channelId] = nextChannelTyping;
+            }
+
+            return nextTyping;
+          });
+          if (typingTimeoutsRef.current[event.channelId]) {
+            delete typingTimeoutsRef.current[event.channelId][event.userId];
+          }
+        }, 2000),
+      };
+    });
+
     transport.connect();
 
     return () => {
+      Object.values(typingTimeoutsRef.current).forEach((channelTimeouts) => {
+        Object.values(channelTimeouts).forEach((timeoutId) => {
+          window.clearTimeout(timeoutId);
+        });
+      });
+      typingTimeoutsRef.current = {};
       unsubscribeConnection();
-      unsubscribe();
+      unsubscribeMessages();
+      unsubscribeTyping();
       transport.disconnect();
     };
-  }, [transport]);
+  }, [queryClient, transport, user?.id]);
 
   useEffect(() => {
-    if (usesSeedData || !activeChannelId) {
+    const previousChannelId = previousChannelIdRef.current;
+
+    if (previousChannelId && previousChannelId !== activeChannelId) {
+      transport.leaveRoom(previousChannelId);
+    }
+
+    if (activeChannelId) {
+      transport.joinRoom(activeChannelId);
+    }
+
+    previousChannelIdRef.current = activeChannelId || null;
+  }, [activeChannelId, transport]);
+
+  useEffect(() => {
+    if (!activeChannelId) {
       return;
     }
 
-    let isMounted = true;
-
-    const syncMessages = async () => {
-      try {
-        const payload = await httpClient.get<
-          Array<{
-            id: string;
-            sender_id: string;
-            group_id?: string | null;
-            message: string;
-            created_at: string;
-          }>
-        >(`/chats?group_id=${encodeURIComponent(activeChannelId)}`);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setMessagesByChannel((currentMessages) => ({
-          ...currentMessages,
-          [activeChannelId]: payload.map((message) => ({
-            id: message.id,
-            clientMessageId: message.id,
-            serverMessageId: message.id,
-            channelId: message.group_id ?? activeChannelId,
-            userId: message.sender_id,
-            username: message.sender_id === user?.id ? user.name : "Orbit Member",
-            avatarFallback:
-              message.sender_id === user?.id ? user.avatarFallback : "OM",
-            content: message.message,
-            createdAt: message.created_at,
-            type: "text",
-            status: "sent",
-            canRetry: false,
-          })),
+    queryClient.setQueryData<Channel[]>(
+      orbitQueryKeys.chat.conversations,
+      (currentChannels = []) => {
+        const nextChannels = setConversationUnread(currentChannels, activeChannelId, () => ({
+          unreadCount: 0,
+          unreadMentionCount: 0,
         }));
-        setConnectionStatus("connected");
-      } catch {
-        if (isMounted) {
-          setConnectionStatus("disconnected");
-        }
-      }
-    };
+        syncChatUnreadCount(queryClient, nextChannels);
+        return nextChannels;
+      },
+    );
 
-    void syncMessages();
-    const intervalId = window.setInterval(() => {
-      void syncMessages();
-    }, 5000);
+    const latestMessage = queryClient
+      .getQueryData<Message[]>(orbitQueryKeys.chat.messages(activeChannelId))
+      ?.at(-1);
+
+    const nextPreferences = updateChatPreferences((currentPreferences) => ({
+      ...currentPreferences,
+      lastReadAtByChannel: {
+        ...currentPreferences.lastReadAtByChannel,
+        [activeChannelId]: latestMessage?.createdAt ?? new Date().toISOString(),
+      },
+    }));
+    queryClient.setQueryData<ChatPreferences>(
+      orbitQueryKeys.chat.preferences,
+      nextPreferences,
+    );
+  }, [activeChannelId, queryClient]);
+
+  useEffect(() => {
+    if (!user || !activeChannelId || usesSeedData) {
+      return;
+    }
+
+    const content = draft.trim();
+
+    if (!content) {
+      if (isTypingRef.current) {
+        transport.emitTyping({
+          channelId: activeChannelId,
+          userId: user.id,
+          username: user.name,
+          isTyping: false,
+        });
+        isTypingRef.current = false;
+      }
+
+      return;
+    }
+
+    if (!isTypingRef.current) {
+      transport.emitTyping({
+        channelId: activeChannelId,
+        userId: user.id,
+        username: user.name,
+        isTyping: true,
+      });
+      isTypingRef.current = true;
+    }
+
+    if (outgoingTypingTimeoutRef.current) {
+      window.clearTimeout(outgoingTypingTimeoutRef.current);
+    }
+
+    outgoingTypingTimeoutRef.current = window.setTimeout(() => {
+      transport.emitTyping({
+        channelId: activeChannelId,
+        userId: user.id,
+        username: user.name,
+        isTyping: false,
+      });
+      isTypingRef.current = false;
+    }, 1200);
 
     return () => {
-      isMounted = false;
-      window.clearInterval(intervalId);
+      if (outgoingTypingTimeoutRef.current) {
+        window.clearTimeout(outgoingTypingTimeoutRef.current);
+      }
     };
-  }, [activeChannelId, user?.avatarFallback, user?.id, user?.name, usesSeedData]);
+  }, [activeChannelId, draft, transport, user, usesSeedData]);
 
   const members = useMemo<Member[]>(() => {
     if (usesSeedData) {
@@ -415,37 +698,103 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
       type: nextMessage.type,
     };
 
-    setMessagesByChannel((currentMessages) =>
-      appendMessage(currentMessages, nextMessage),
+    if (isTypingRef.current) {
+      transport.emitTyping({
+        channelId: activeChannel.id,
+        userId: user.id,
+        username: user.name,
+        isTyping: false,
+      });
+      isTypingRef.current = false;
+    }
+
+    queryClient.setQueryData<Message[]>(
+      orbitQueryKeys.chat.messages(activeChannel.id),
+      (currentMessages = []) =>
+        appendMessage(currentMessages, withMentionStateForIdentity(nextMessage, user)),
+    );
+    const nextPreferences = updateChatPreferences((currentPreferences) => ({
+      ...currentPreferences,
+      lastReadAtByChannel: {
+        ...currentPreferences.lastReadAtByChannel,
+        [activeChannel.id]: nextMessage.createdAt,
+      },
+    }));
+    queryClient.setQueryData<ChatPreferences>(
+      orbitQueryKeys.chat.preferences,
+      nextPreferences,
     );
     setDraft("");
 
     void transport
       .sendMessage(outgoingMessage)
       .then(({ clientMessageId: acknowledgedClientId, message: sentMessage }) => {
-        setMessagesByChannel((currentMessages) =>
-          reconcileMessage(currentMessages, acknowledgedClientId, () => ({
-            ...sentMessage,
-            status: "sent",
-            canRetry: false,
-          })),
+        queryClient.setQueryData<Message[]>(
+          orbitQueryKeys.chat.messages(activeChannel.id),
+          (currentMessages = []) =>
+            reconcileMessage(currentMessages, acknowledgedClientId, () => ({
+              ...withMentionStateForIdentity(sentMessage, user),
+              status: "sent",
+              canRetry: false,
+            })),
         );
       })
       .catch(() => {
-        setMessagesByChannel((currentMessages) =>
-          reconcileMessage(currentMessages, nextMessage.clientMessageId, (message) => ({
-            ...message,
-            status: "failed",
-            canRetry: true,
-          })),
+        queryClient.setQueryData<Message[]>(
+          orbitQueryKeys.chat.messages(activeChannel.id),
+          (currentMessages = []) =>
+            reconcileMessage(currentMessages, nextMessage.clientMessageId, (message) => ({
+              ...message,
+              status: "failed",
+              canRetry: true,
+            })),
         );
       });
   }
 
+  function handleSetActiveChannelId(channelId: string) {
+    setActiveChannelId(channelId);
+  }
+
+  function toggleMuteChannel(channelId: string) {
+    const nextPreferences = updateChatPreferences((currentPreferences) => {
+      const isMuted = currentPreferences.mutedChannelIds.includes(channelId);
+
+      return {
+        ...currentPreferences,
+        mutedChannelIds: isMuted
+          ? currentPreferences.mutedChannelIds.filter((id) => id !== channelId)
+          : [...currentPreferences.mutedChannelIds, channelId],
+      };
+    });
+
+    queryClient.setQueryData<ChatPreferences>(
+      orbitQueryKeys.chat.preferences,
+      nextPreferences,
+    );
+    queryClient.setQueryData<Channel[]>(
+      orbitQueryKeys.chat.conversations,
+      (currentChannels = []) =>
+        currentChannels.map((channel) =>
+          channel.id === channelId
+            ? {
+                ...channel,
+                isMuted: nextPreferences.mutedChannelIds.includes(channelId),
+              }
+            : channel,
+        ),
+    );
+  }
+
+  const activeChannelUnreadCount =
+    channels.find((channel) => channel.id === activeChannelId)?.unreadCount ?? 0;
+  const activeChannelLastReadAt =
+    channels.find((channel) => channel.id === activeChannelId)?.lastReadAt ?? null;
+
   return {
     channels,
     activeChannelId,
-    setActiveChannelId,
+    setActiveChannelId: handleSetActiveChannelId,
     activeChannel,
     messages,
     members,
@@ -454,5 +803,21 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
     draft,
     setDraft,
     isEmpty: messages.length === 0,
+    typingLabel:
+      Object.values(typingUsersByChannel[activeChannelId] ?? {}).length > 0
+        ? Object.values(typingUsersByChannel[activeChannelId] ?? {}).join(", ")
+        : null,
+    toggleMuteChannel,
+    isActiveChannelMuted:
+      channels.find((channel) => channel.id === activeChannelId)?.isMuted ?? false,
+    readStateLabel:
+      activeChannelUnreadCount > 0
+        ? "Unread"
+        : activeChannelLastReadAt
+          ? `Read ${new Date(activeChannelLastReadAt).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}`
+          : "All caught up",
   };
 }

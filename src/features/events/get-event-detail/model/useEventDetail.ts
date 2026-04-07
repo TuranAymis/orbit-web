@@ -6,8 +6,12 @@ import { useAuth } from "@/features/auth/useAuth";
 import { hasValidAccessToken } from "@/features/auth/auth-storage";
 import { joinEvent } from "@/features/events/join-event/api/joinEvent";
 import { leaveEvent } from "@/features/events/leave-event/api/leaveEvent";
-import type { EventListItem } from "@/entities/event/model/types";
-import type { DiscoverFeed } from "@/features/discover/get-discover-feed/mappers/discoverMapper";
+import {
+  captureEventAttendanceSnapshot,
+  restoreEventAttendanceCaches,
+  syncEventAttendanceCaches,
+} from "@/features/events/model/attendanceCache";
+import { logMutationLifecycle } from "@/shared/lib/mutations/mutationLogger";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 
 interface UseEventDetailResult {
@@ -53,87 +57,41 @@ export function useEventDetail(eventId?: string): UseEventDetailResult {
     },
     onMutate: async (nextJoinedState) => {
       if (!eventId) {
-        return { previousEvent: null, previousEvents: null, previousDiscover: null };
+        return undefined;
       }
+
+      logMutationLifecycle("event.attendance.toggle", "start", {
+        eventId,
+        nextJoinedState,
+      });
 
       await Promise.all([
         queryClient.cancelQueries({ queryKey: orbitQueryKeys.events.detail(eventId) }),
-        queryClient.cancelQueries({ queryKey: orbitQueryKeys.events.all }),
+        queryClient.cancelQueries({ queryKey: orbitQueryKeys.events.list }),
         queryClient.cancelQueries({ queryKey: orbitQueryKeys.discover.feed }),
       ]);
 
-      const previousEvent = queryClient.getQueryData<EventDetail>(
-        orbitQueryKeys.events.detail(eventId),
-      );
-      const previousEvents = queryClient.getQueryData<EventListItem[]>(
-        orbitQueryKeys.events.all,
-      );
-      const previousDiscover = queryClient.getQueryData<DiscoverFeed>(
-        orbitQueryKeys.discover.feed,
-      );
-
-      if (previousEvent) {
-        queryClient.setQueryData<EventDetail>(orbitQueryKeys.events.detail(eventId), {
-          ...previousEvent,
-          isJoined: nextJoinedState,
-          attendeeCount: nextJoinedState
-            ? previousEvent.attendeeCount + 1
-            : Math.max(0, previousEvent.attendeeCount - 1),
-        });
+      const snapshot = captureEventAttendanceSnapshot(queryClient, eventId);
+      syncEventAttendanceCaches(queryClient, eventId, nextJoinedState);
+      return snapshot;
+    },
+    onSuccess: (_data, nextJoinedState) => {
+      if (!eventId) {
+        return;
       }
 
-      if (previousEvents) {
-        queryClient.setQueryData<EventListItem[]>(
-          orbitQueryKeys.events.all,
-          previousEvents.map((event) =>
-            event.id === eventId
-              ? {
-                  ...event,
-                  isJoined: nextJoinedState,
-                  attendeeCount: nextJoinedState
-                    ? event.attendeeCount + 1
-                    : Math.max(0, event.attendeeCount - 1),
-                }
-              : event,
-          ),
-        );
-      }
-
-      if (previousDiscover) {
-        queryClient.setQueryData<DiscoverFeed>(orbitQueryKeys.discover.feed, {
-          ...previousDiscover,
-          events: previousDiscover.events.map((event) =>
-            event.id === eventId
-              ? {
-                  ...event,
-                  isJoined: nextJoinedState,
-                  attendeeCount: nextJoinedState
-                    ? event.attendeeCount + 1
-                    : Math.max(0, event.attendeeCount - 1),
-                }
-              : event,
-          ),
-        });
-      }
-
-      return { previousEvent, previousEvents, previousDiscover };
+      logMutationLifecycle("event.attendance.toggle", "success", {
+        eventId,
+        nextJoinedState,
+      });
     },
     onError: (_error, _nextJoinedState, context) => {
       if (!eventId) {
         return;
       }
 
-      if (context?.previousEvent) {
-        queryClient.setQueryData(orbitQueryKeys.events.detail(eventId), context.previousEvent);
-      }
-
-      if (context?.previousEvents) {
-        queryClient.setQueryData(orbitQueryKeys.events.all, context.previousEvents);
-      }
-
-      if (context?.previousDiscover) {
-        queryClient.setQueryData(orbitQueryKeys.discover.feed, context.previousDiscover);
-      }
+      logMutationLifecycle("event.attendance.toggle", "rollback", { eventId });
+      restoreEventAttendanceCaches(queryClient, eventId, context);
     },
     onSettled: async () => {
       if (!eventId) {
@@ -145,7 +103,7 @@ export function useEventDetail(eventId?: string): UseEventDetailResult {
           queryKey: orbitQueryKeys.events.detail(eventId),
         }),
         queryClient.invalidateQueries({
-          queryKey: orbitQueryKeys.events.all,
+          queryKey: orbitQueryKeys.events.list,
         }),
         queryClient.invalidateQueries({
           queryKey: orbitQueryKeys.discover.feed,

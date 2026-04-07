@@ -5,8 +5,14 @@ import { CalendarDays, MapPin, Plus } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
 import { canCreateEvent } from "@/shared/lib/access/permissions";
 import { useEvents } from "@/features/events/list-events/model/useEvents";
+import {
+  captureEventAttendanceSnapshot,
+  restoreEventAttendanceCaches,
+  syncEventAttendanceCaches,
+} from "@/features/events/model/attendanceCache";
 import { joinEvent } from "@/features/events/join-event/api/joinEvent";
 import { leaveEvent } from "@/features/events/leave-event/api/leaveEvent";
+import { logMutationLifecycle } from "@/shared/lib/mutations/mutationLogger";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 import { AsyncState } from "@/shared/ui/AsyncState";
 import { Badge } from "@/shared/ui/badge";
@@ -16,7 +22,6 @@ import { PageContainer } from "@/shared/ui/page-container";
 import { Tabs } from "@/shared/ui/tabs";
 import { LoadingState } from "@/shared/ui/LoadingState";
 import type { EventListItem } from "@/entities/event/model/types";
-import type { DiscoverFeed } from "@/features/discover/get-discover-feed/mappers/discoverMapper";
 
 type EventTab = "all" | "week" | "month";
 
@@ -37,59 +42,38 @@ export function EventsPage() {
       return { eventId: event.id, nextJoined: true };
     },
     onMutate: async (event) => {
+      logMutationLifecycle("event.attendance.list-toggle", "start", {
+        eventId: event.id,
+        nextJoinedState: !event.isJoined,
+      });
+
       await Promise.all([
-        queryClient.cancelQueries({ queryKey: orbitQueryKeys.events.all }),
+        queryClient.cancelQueries({ queryKey: orbitQueryKeys.events.list }),
         queryClient.cancelQueries({ queryKey: orbitQueryKeys.discover.feed }),
       ]);
 
-      const previousEvents = queryClient.getQueryData<EventListItem[]>(orbitQueryKeys.events.all);
-      const previousDiscover = queryClient.getQueryData<DiscoverFeed>(orbitQueryKeys.discover.feed);
       const nextJoined = !event.isJoined;
-
-      if (previousEvents) {
-        queryClient.setQueryData<EventListItem[]>(
-          orbitQueryKeys.events.all,
-          previousEvents.map((item) =>
-            item.id === event.id
-              ? {
-                  ...item,
-                  isJoined: nextJoined,
-                  attendeeCount: nextJoined ? item.attendeeCount + 1 : Math.max(0, item.attendeeCount - 1),
-                }
-              : item,
-          ),
-        );
-      }
-
-      if (previousDiscover) {
-        queryClient.setQueryData<DiscoverFeed>(orbitQueryKeys.discover.feed, {
-          ...previousDiscover,
-          events: previousDiscover.events.map((item) =>
-            item.id === event.id
-              ? {
-                  ...item,
-                  isJoined: nextJoined,
-                  attendeeCount: nextJoined ? item.attendeeCount + 1 : Math.max(0, item.attendeeCount - 1),
-                }
-              : item,
-          ),
-        });
-      }
-
-      return { previousEvents, previousDiscover };
+      const snapshot = captureEventAttendanceSnapshot(queryClient, event.id);
+      syncEventAttendanceCaches(queryClient, event.id, nextJoined);
+      return snapshot;
+    },
+    onSuccess: (_data, event) => {
+      logMutationLifecycle("event.attendance.list-toggle", "success", {
+        eventId: event.id,
+        nextJoinedState: !event.isJoined,
+      });
     },
     onError: (_error, _event, context) => {
-      if (context?.previousEvents) {
-        queryClient.setQueryData(orbitQueryKeys.events.all, context.previousEvents);
-      }
-
-      if (context?.previousDiscover) {
-        queryClient.setQueryData(orbitQueryKeys.discover.feed, context.previousDiscover);
+      if (attendanceMutation.variables) {
+        logMutationLifecycle("event.attendance.list-toggle", "rollback", {
+          eventId: attendanceMutation.variables.id,
+        });
+        restoreEventAttendanceCaches(queryClient, attendanceMutation.variables.id, context);
       }
     },
     onSettled: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: orbitQueryKeys.events.all }),
+        queryClient.invalidateQueries({ queryKey: orbitQueryKeys.events.list }),
         queryClient.invalidateQueries({ queryKey: orbitQueryKeys.discover.feed }),
       ]);
     },

@@ -12,16 +12,17 @@ import {
 } from "@/features/discover/get-discover-feed/api/getDiscoverFeed";
 import type {
   DiscoverFeed,
-  DiscoverTrendItem,
 } from "@/features/discover/get-discover-feed/mappers/discoverMapper";
+import {
+  createDiscoverPageData,
+  type DiscoverPageData,
+} from "@/features/discover/get-discover-feed/model/discoverPageData";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 
-interface UseDiscoverFeedResult extends DiscoverFeed {
-  isLoading: boolean;
+interface UseDiscoverFeedResult {
+  data: DiscoverPageData;
   error: Error | null;
-  groupsError?: Error | null;
-  eventsError?: Error | null;
-  isEmpty: boolean;
+  feed: DiscoverFeed;
   refetch: () => Promise<void>;
 }
 
@@ -32,8 +33,6 @@ const initialFeed: DiscoverFeedResult = {
   groupsError: null,
   eventsError: null,
 };
-
-export type { DiscoverTrendItem };
 
 export function useDiscoverFeed(): UseDiscoverFeedResult {
   const { authReady, isAuthenticated, isLoading: isAuthLoading, session } = useAuth();
@@ -51,12 +50,18 @@ export function useDiscoverFeed(): UseDiscoverFeedResult {
     orbitQueryKeys.groups.joinedState,
   );
   const groups = applyJoinedGroupStateToGroups(feed.groups, joinedState);
+  const normalizedFeed: DiscoverFeed = {
+    groups,
+    events: feed.events,
+    trending: feed.trending,
+  };
   const queryError = query.error instanceof Error ? query.error : null;
-  const error =
-    queryError ??
-    (feed.groupsError && feed.eventsError
-      ? new Error("Discover feed is currently unavailable.")
-      : null);
+  const discoverPageData = createDiscoverPageData(normalizedFeed, {
+    isLoading: !authReady || isAuthLoading || query.isLoading,
+    groupsError: feed.groupsError,
+    eventsError: feed.eventsError,
+  });
+  const error = queryError;
 
   if (appConfig.isDevelopment) {
     console.log("AUTH READY:", authReady);
@@ -70,16 +75,9 @@ export function useDiscoverFeed(): UseDiscoverFeedResult {
   }
 
   return {
-    ...feed,
-    groups,
-    isLoading: !authReady || isAuthLoading || query.isLoading,
+    data: discoverPageData,
     error,
-    isEmpty:
-      !query.isLoading &&
-      !error &&
-      groups.length === 0 &&
-      feed.events.length === 0 &&
-      feed.trending.length === 0,
+    feed: normalizedFeed,
     refetch: async () => {
       await query.refetch();
     },

@@ -35,11 +35,22 @@ export interface ChatSendResult {
   message: Message;
 }
 
+export interface ChatTypingEvent {
+  channelId: string;
+  userId: string;
+  username: string;
+  isTyping: boolean;
+}
+
 export interface ChatTransport {
   connect: () => void;
   disconnect: () => void;
+  joinRoom: (channelId: string) => void;
+  leaveRoom: (channelId: string) => void;
   sendMessage: (message: TransportOutgoingMessage) => Promise<ChatSendResult>;
+  emitTyping: (event: ChatTypingEvent) => void;
   subscribeToMessages: (callback: (message: Message) => void) => () => void;
+  subscribeToTyping: (callback: (event: ChatTypingEvent) => void) => () => void;
   subscribeToConnectionStatus: (
     callback: (status: ChatConnectionStatus) => void,
   ) => () => void;

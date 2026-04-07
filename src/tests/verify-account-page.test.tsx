@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers/AppProviders";
+import * as resendModule from "@/features/auth/resend-verification-code/model/useResendVerificationCode";
 import * as verifyModule from "@/features/auth/verify/model/useVerifyUserEmail";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { VerifyAccountPage } from "@/pages/auth/VerifyAccountPage";
@@ -23,6 +24,11 @@ function renderVerifyAccountPage(initialEntry = "/verify-account?email=user@orbi
 describe("VerifyAccountPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(resendModule, "useResendVerificationCode").mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      error: null,
+    } as never);
   });
 
   it("navigates back to login with a success message after verification", async () => {
@@ -53,7 +59,79 @@ describe("VerifyAccountPage", () => {
     });
     expect(screen.getByLabelText(/^email$/i)).toHaveValue("user@orbit.dev");
     expect(
-      screen.getByText(/your account is active now\. sign in to continue\./i),
+      screen.getByText(/your account has been verified\. you can now log in\./i),
+    ).toBeInTheDocument();
+  });
+
+  it("resends the verification code and shows a success message", async () => {
+    vi.spyOn(verifyModule, "useVerifyUserEmail").mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      error: null,
+    } as never);
+    const resendMutateAsync = vi.fn().mockResolvedValue({ email: "user@orbit.dev" });
+    vi.spyOn(resendModule, "useResendVerificationCode").mockReturnValue({
+      mutateAsync: resendMutateAsync,
+      isPending: false,
+      error: null,
+    } as never);
+    const user = userEvent.setup();
+
+    renderVerifyAccountPage();
+
+    await user.click(screen.getByRole("button", { name: /resend code/i }));
+
+    expect(resendMutateAsync).toHaveBeenCalledWith({
+      email: "user@orbit.dev",
+    });
+    expect(
+      await screen.findByText(/a new verification code has been sent\./i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /resend in 30s/i })).toBeDisabled();
+  });
+
+  it("shows a graceful resend error when the backend route is unavailable", async () => {
+    vi.spyOn(verifyModule, "useVerifyUserEmail").mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      error: null,
+    } as never);
+    vi.spyOn(resendModule, "useResendVerificationCode").mockReturnValue({
+      mutateAsync: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            "Resend verification is not available yet. Please use the latest code from your email.",
+          ),
+        ),
+      isPending: false,
+      error: null,
+    } as never);
+    const user = userEvent.setup();
+
+    renderVerifyAccountPage();
+
+    await user.click(screen.getByRole("button", { name: /resend code/i }));
+
+    expect(
+      await screen.findByText(/resend verification is not available yet\./i),
+    ).toBeInTheDocument();
+  });
+
+  it("supports direct verify-page access without a prefilled email", () => {
+    vi.spyOn(verifyModule, "useVerifyUserEmail").mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      error: null,
+    } as never);
+
+    renderVerifyAccountPage("/verify-account");
+
+    expect(screen.getByLabelText(/^email$/i)).toHaveValue("");
+    expect(
+      screen.getByText(
+        /enter the email address you registered with, then paste the verification code from your inbox\./i,
+      ),
     ).toBeInTheDocument();
   });
 });

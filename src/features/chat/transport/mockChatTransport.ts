@@ -2,6 +2,7 @@ import type { Message } from "@/entities/message/model/types";
 import type {
   ChatConnectionStatus,
   ChatTransport,
+  ChatTypingEvent,
   TransportOutgoingMessage,
 } from "@/features/chat/transport/chatTransport";
 
@@ -32,6 +33,7 @@ export function createMockChatTransport(
   const outgoingDelayMs = options.outgoingDelayMs ?? 320;
   const incomingDelayMs = options.incomingDelayMs ?? 1800;
   const listeners = new Set<(message: Message) => void>();
+  const typingListeners = new Set<(event: ChatTypingEvent) => void>();
   const connectionListeners = new Set<(status: ChatConnectionStatus) => void>();
   let incomingTimer: number | null = null;
   let connectionTimer: number | null = null;
@@ -79,6 +81,8 @@ export function createMockChatTransport(
         incomingTimer = null;
       }
     },
+    joinRoom() {},
+    leaveRoom() {},
     async sendMessage(message: TransportOutgoingMessage) {
       await new Promise((resolve) => {
         window.setTimeout(resolve, outgoingDelayMs);
@@ -106,6 +110,16 @@ export function createMockChatTransport(
           window.clearTimeout(incomingTimer);
           incomingTimer = null;
         }
+      };
+    },
+    emitTyping(event) {
+      typingListeners.forEach((listener) => listener(event));
+    },
+    subscribeToTyping(callback) {
+      typingListeners.add(callback);
+
+      return () => {
+        typingListeners.delete(callback);
       };
     },
     subscribeToConnectionStatus(callback) {

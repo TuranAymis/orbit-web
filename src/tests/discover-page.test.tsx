@@ -7,6 +7,7 @@ import { DiscoverPage } from "@/pages/discover/DiscoverPage";
 import type { Group } from "@/entities/group/model/types";
 import type { EventListItem } from "@/entities/event/model/types";
 import * as useDiscoverFeedModule from "@/features/discover/get-discover-feed/model/useDiscoverFeed";
+import type { DiscoverPageData } from "@/features/discover/get-discover-feed/model/discoverPageData";
 
 const mockGroups: Group[] = [
   {
@@ -36,15 +37,32 @@ const mockEvents: EventListItem[] = [
   },
 ];
 
-const mockTrending = [
-  {
-    id: "trend_frontend-forge",
-    title: "Frontend Forge is trending",
-    description: "Strong member growth and steady event participation this week.",
-    metricLabel: "Momentum",
-    metricValue: "High",
-  },
-];
+function createDiscoverPageDataMock(overrides?: Partial<DiscoverPageData>): DiscoverPageData {
+  return {
+    sections: [
+      {
+        type: "groups",
+        title: "Groups For You",
+        description: "Communities pulled from the live Orbit backend.",
+        items: mockGroups,
+        error: null,
+        isEmpty: false,
+      },
+      {
+        type: "events",
+        title: "Events For You",
+        description: "Upcoming sessions and live gatherings from the backend feed.",
+        items: mockEvents,
+        error: null,
+        isEmpty: false,
+      },
+    ],
+    isLoading: false,
+    hasAnyContent: true,
+    hasAnyError: false,
+    ...overrides,
+  };
+}
 
 function renderDiscoverPage() {
   return render(
@@ -63,12 +81,13 @@ describe("DiscoverPage", () => {
 
   it("renders real feed data in the groups tab", () => {
     vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
-      groups: mockGroups,
-      events: mockEvents,
-      trending: mockTrending,
-      isLoading: false,
+      data: createDiscoverPageDataMock(),
       error: null,
-      isEmpty: false,
+      feed: {
+        groups: mockGroups,
+        events: mockEvents,
+        trending: [],
+      },
       refetch: vi.fn(),
     });
 
@@ -80,12 +99,13 @@ describe("DiscoverPage", () => {
 
   it("switches to the events tab and renders event cards", async () => {
     vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
-      groups: mockGroups,
-      events: mockEvents,
-      trending: mockTrending,
-      isLoading: false,
+      data: createDiscoverPageDataMock(),
       error: null,
-      isEmpty: false,
+      feed: {
+        groups: mockGroups,
+        events: mockEvents,
+        trending: [],
+      },
       refetch: vi.fn(),
     });
 
@@ -101,14 +121,15 @@ describe("DiscoverPage", () => {
     expect(screen.getByText(/design systems review/i)).toBeInTheDocument();
   });
 
-  it("switches to the trending tab and renders normalized trending data", async () => {
+  it("switches to the trending tab and renders section-based trending content", async () => {
     vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
-      groups: mockGroups,
-      events: mockEvents,
-      trending: mockTrending,
-      isLoading: false,
+      data: createDiscoverPageDataMock(),
       error: null,
-      isEmpty: false,
+      feed: {
+        groups: mockGroups,
+        events: mockEvents,
+        trending: [],
+      },
       refetch: vi.fn(),
     });
 
@@ -117,35 +138,48 @@ describe("DiscoverPage", () => {
 
     await user.click(screen.getByRole("tab", { name: /trending/i }));
 
-    expect(screen.getByText(/frontend forge is trending/i)).toBeInTheDocument();
-    expect(screen.getByText(/momentum/i)).toBeInTheDocument();
+    expect(screen.getByText(/trending groups/i)).toBeInTheDocument();
+    expect(screen.getByText(/trending events/i)).toBeInTheDocument();
   });
 
-  it("renders loading state while the discover feed is fetching", () => {
+  it("renders section-aware loading skeletons while the discover feed is fetching", () => {
     vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
-      groups: [],
-      events: [],
-      trending: [],
-      isLoading: true,
+      data: createDiscoverPageDataMock({
+        sections: [],
+        isLoading: true,
+        hasAnyContent: false,
+        hasAnyError: false,
+      }),
       error: null,
-      isEmpty: false,
+      feed: {
+        groups: [],
+        events: [],
+        trending: [],
+      },
       refetch: vi.fn(),
     });
 
     renderDiscoverPage();
 
     expect(screen.getByTestId("discover-loading")).toBeInTheDocument();
+    expect(screen.getAllByTestId("discover-section-skeleton")).toHaveLength(2);
   });
 
   it("renders an error state with retry", async () => {
     const refetch = vi.fn();
     vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
-      groups: [],
-      events: [],
-      trending: [],
-      isLoading: false,
+      data: createDiscoverPageDataMock({
+        sections: [],
+        isLoading: false,
+        hasAnyContent: false,
+        hasAnyError: false,
+      }),
       error: new Error("Network error"),
-      isEmpty: false,
+      feed: {
+        groups: [],
+        events: [],
+        trending: [],
+      },
       refetch,
     });
 
@@ -159,41 +193,80 @@ describe("DiscoverPage", () => {
     expect(refetch).toHaveBeenCalled();
   });
 
-  it("renders actionable CTAs in the empty state", async () => {
+  it("renders page-level empty state only when every section is empty", async () => {
     const refetch = vi.fn();
     vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
-      groups: [],
-      events: [],
-      trending: [],
-      isLoading: false,
+      data: createDiscoverPageDataMock({
+        sections: [
+          {
+            type: "groups",
+            title: "Groups For You",
+            description: "Communities pulled from the live Orbit backend.",
+            items: [],
+            error: null,
+            isEmpty: true,
+          },
+          {
+            type: "events",
+            title: "Events For You",
+            description: "Upcoming sessions and live gatherings from the backend feed.",
+            items: [],
+            error: null,
+            isEmpty: true,
+          },
+        ],
+        isLoading: false,
+        hasAnyContent: false,
+        hasAnyError: false,
+      }),
       error: null,
-      isEmpty: true,
+      feed: {
+        groups: [],
+        events: [],
+        trending: [],
+      },
       refetch,
     });
 
     const user = userEvent.setup();
     renderDiscoverPage();
 
-    expect(screen.getByText(/no groups are ready yet/i)).toBeInTheDocument();
-    const refreshButtons = screen.getAllByRole("button", { name: /refresh feed/i });
-    expect(refreshButtons).toHaveLength(2);
-    expect(screen.getByRole("button", { name: /browse events/i })).toBeInTheDocument();
-
-    await user.click(refreshButtons[1]);
+    expect(screen.getByText(/discover is quiet right now/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /refresh feed/i }));
 
     expect(refetch).toHaveBeenCalled();
   });
 
-  it("keeps groups visible when the events source fails", async () => {
+  it("keeps groups visible when the events section fails", async () => {
     vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
-      groups: mockGroups,
-      events: [],
-      trending: [],
-      isLoading: false,
+      data: createDiscoverPageDataMock({
+        sections: [
+          {
+            type: "groups",
+            title: "Groups For You",
+            description: "Communities pulled from the live Orbit backend.",
+            items: mockGroups,
+            error: null,
+            isEmpty: false,
+          },
+          {
+            type: "events",
+            title: "Events For You",
+            description: "Upcoming sessions and live gatherings from the backend feed.",
+            items: [],
+            error: "Unauthorized",
+            isEmpty: true,
+          },
+        ],
+        hasAnyContent: true,
+        hasAnyError: true,
+      }),
       error: null,
-      groupsError: null,
-      eventsError: new Error("Unauthorized"),
-      isEmpty: false,
+      feed: {
+        groups: mockGroups,
+        events: [],
+        trending: [],
+      },
       refetch: vi.fn(),
     });
 
@@ -204,6 +277,6 @@ describe("DiscoverPage", () => {
 
     await user.click(screen.getByRole("tab", { name: /events/i }));
 
-    expect(screen.getByText(/we couldn't load discover right now/i)).toBeInTheDocument();
+    expect(screen.getByText(/we couldn't load events right now/i)).toBeInTheDocument();
   });
 });

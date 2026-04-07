@@ -1,7 +1,8 @@
-import { io, type Socket } from "socket.io-client";
-import { appConfig } from "@/config/appConfig";
 import type { Message } from "@/entities/message/model/types";
+import { createHttpChatTransport } from "@/features/chat/transport/httpChatTransport";
+import { getSharedSocketManager } from "@/features/chat/socket/socketManager";
 import type {
+  ChatTypingEvent,
   ChatConnectionStatus,
   ChatSendResult,
   ChatTransport,
@@ -13,8 +14,14 @@ interface SocketChatTransportOptions {
   url: string;
   path: string;
   namespace: string;
+  authToken?: string;
   sendEvent: string;
   messageEvent: string;
+  joinRoomEvent: string;
+  leaveRoomEvent: string;
+  typingEvent: string;
+  typingStartEvent: string;
+  typingStopEvent: string;
   ackTimeoutMs: number;
 }
 
@@ -51,108 +58,89 @@ function toOutgoingPayload(message: TransportOutgoingMessage) {
 export function createSocketChatTransport(
   options: SocketChatTransportOptions,
 ): ChatTransport {
-  const socketUrl = `${options.url.replace(/\/$/, "")}${options.namespace}`;
-  const socket: Socket = io(socketUrl, {
-    path: options.path,
-    autoConnect: false,
-    transports: ["websocket", "polling"],
+  const manager = getSharedSocketManager({
+    ...options,
   });
-
+  const fallbackTransport = createHttpChatTransport();
   const messageListeners = new Set<(message: Message) => void>();
+  const typingListeners = new Set<(event: ChatTypingEvent) => void>();
   const connectionListeners = new Set<(status: ChatConnectionStatus) => void>();
-
-  function emitConnectionStatus(status: ChatConnectionStatus) {
-    if (appConfig.isDevelopment) {
-      console.info("[orbit:socket]", status);
-    }
-
-    connectionListeners.forEach((listener) => listener(status));
-  }
-
-  socket.on("connect", () => {
-    emitConnectionStatus("connected");
-  });
-
-  socket.on("disconnect", () => {
-    emitConnectionStatus("disconnected");
-  });
-
-  socket.io.on("reconnect_attempt", () => {
-    emitConnectionStatus("reconnecting");
-  });
-
-  socket.io.on("reconnect", () => {
-    emitConnectionStatus("connected");
-  });
-
-  socket.on(options.messageEvent, (payload: TransportIncomingMessage) => {
-    const message = toDomainMessage(payload);
-    messageListeners.forEach((listener) => listener(message));
-  });
 
   return {
     connect() {
-      if (socket.connected) {
-        emitConnectionStatus("connected");
-        return;
-      }
-
-      emitConnectionStatus("connecting");
-      socket.connect();
+      fallbackTransport.connect();
+      manager.connect();
     },
     disconnect() {
-      socket.disconnect();
-      emitConnectionStatus("disconnected");
+      manager.disconnect();
+      fallbackTransport.disconnect();
     },
-    sendMessage(message: TransportOutgoingMessage) {
-      return new Promise<ChatSendResult>((resolve, reject) => {
-        socket.timeout(options.ackTimeoutMs).emit(
-          options.sendEvent,
-          toOutgoingPayload(message),
-          (
-            error: Error | null,
-            payload?: TransportIncomingMessage,
-          ) => {
-            if (error) {
-              reject(error);
-              return;
-            }
-
-            const resolvedPayload: TransportIncomingMessage =
-              payload ??
-              ({
-                id: message.clientMessageId,
-                clientMessageId: message.clientMessageId,
-                serverMessageId: undefined,
-                channelId: message.channelId,
-                userId: message.userId,
-                username: message.username,
-                avatarFallback: message.avatarFallback,
-                content: message.content,
-                createdAt: message.createdAt,
-                type: message.type,
-              } satisfies TransportIncomingMessage);
-
-            resolve({
-              clientMessageId: message.clientMessageId,
-              message: toDomainMessage(resolvedPayload),
-            });
-          },
-        );
-      });
+    joinRoom(channelId) {
+      manager.joinRoom(channelId);
+    },
+    leaveRoom(channelId) {
+      manager.leaveRoom(channelId);
+    },
+    async sendMessage(message: TransportOutgoingMessage) {
+      try {
+        const payload = await manager.sendMessage(toOutgoingPayload(message));
+        return {
+          clientMessageId: message.clientMessageId,
+          message: toDomainMessage(payload),
+        };
+      } catch {
+        return fallbackTransport.sendMessage(message);
+      }
+    },
+    emitTyping(event) {
+      manager.emitTyping(event);
     },
     subscribeToMessages(callback) {
       messageListeners.add(callback);
+      const unsubscribeManager = manager.subscribeToMessages((payload) => {
+        const message = toDomainMessage(payload);
+        messageListeners.forEach((listener) => listener(message));
+      });
+
+      const unsubscribeFallback = fallbackTransport.subscribeToMessages((message) => {
+        messageListeners.forEach((listener) => listener(message));
+      });
 
       return () => {
         messageListeners.delete(callback);
+        unsubscribeManager();
+        unsubscribeFallback();
+      };
+    },
+    subscribeToTyping(callback) {
+      typingListeners.add(callback);
+
+      const unsubscribe = manager.subscribeToTyping((event) => {
+        typingListeners.forEach((listener) => listener(event));
+      });
+
+      return () => {
+        typingListeners.delete(callback);
+        unsubscribe();
       };
     },
     subscribeToConnectionStatus(callback) {
       connectionListeners.add(callback);
+      const unsubscribeManager = manager.subscribeToConnectionStatus((status) => {
+        connectionListeners.forEach((listener) => listener(status));
+      });
+      const unsubscribeFallback = fallbackTransport.subscribeToConnectionStatus((status) => {
+        if (status === "connected") {
+          return;
+        }
+
+        connectionListeners.forEach((listener) => listener(status));
+      });
 
       return () => {
         connectionListeners.delete(callback);
+        unsubscribeManager();
+        unsubscribeFallback();
       };
     },
   };

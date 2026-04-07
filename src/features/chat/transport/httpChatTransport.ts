@@ -3,6 +3,7 @@ import type {
   ChatConnectionStatus,
   ChatSendResult,
   ChatTransport,
+  ChatTypingEvent,
   TransportOutgoingMessage,
 } from "@/features/chat/transport/chatTransport";
 import { httpClient } from "@/shared/lib/http/httpClient";
@@ -38,6 +39,7 @@ function mapChatResponse(
 
 export function createHttpChatTransport(): ChatTransport {
   const messageListeners = new Set<(message: Message) => void>();
+  const typingListeners = new Set<(event: ChatTypingEvent) => void>();
   const connectionListeners = new Set<(status: ChatConnectionStatus) => void>();
 
   function emitConnectionStatus(status: ChatConnectionStatus) {
@@ -51,6 +53,8 @@ export function createHttpChatTransport(): ChatTransport {
     disconnect() {
       emitConnectionStatus("disconnected");
     },
+    joinRoom() {},
+    leaveRoom() {},
     async sendMessage(message: TransportOutgoingMessage): Promise<ChatSendResult> {
       const payload = await httpClient.post<BackendChatResponse>("/chats", {
         group_id: message.channelId,
@@ -70,6 +74,14 @@ export function createHttpChatTransport(): ChatTransport {
 
       return () => {
         messageListeners.delete(callback);
+      };
+    },
+    emitTyping() {},
+    subscribeToTyping(callback) {
+      typingListeners.add(callback);
+
+      return () => {
+        typingListeners.delete(callback);
       };
     },
     subscribeToConnectionStatus(callback) {

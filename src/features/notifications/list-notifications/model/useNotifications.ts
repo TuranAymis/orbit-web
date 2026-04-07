@@ -17,7 +17,7 @@ export function useNotifications(): UseNotificationsResult {
   const { authReady, isAuthenticated, isLoading: isAuthLoading, session } = useAuth();
   const isQueryEnabled = authReady && !isAuthLoading && isAuthenticated && hasValidAccessToken(session);
   const query = useQuery({
-    queryKey: orbitQueryKeys.notifications.all,
+    queryKey: orbitQueryKeys.notifications.list,
     queryFn: listNotifications,
     refetchInterval: 30_000,
     enabled: isQueryEnabled,

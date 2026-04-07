@@ -6,6 +6,7 @@ import { AppProviders } from "@/app/providers/AppProviders";
 import type { AuthSession } from "@/features/auth/types";
 import { useDiscoverFeed } from "@/features/discover/get-discover-feed/model/useDiscoverFeed";
 import * as discoverApi from "@/features/discover/get-discover-feed/api/getDiscoverFeed";
+import { createDiscoverPageData } from "@/features/discover/get-discover-feed/model/discoverPageData";
 import { createOrbitQueryClient } from "@/shared/lib/query/query-client";
 
 const demoSession: AuthSession = {
@@ -80,13 +81,14 @@ describe("useDiscoverFeed", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
+      expect(result.current.data.isLoading).toBe(false);
     });
 
-    expect(result.current.groups[0]?.name).toBe("Frontend Forge");
-    expect(result.current.events[0]?.title).toBe("Design Systems Review");
-    expect(result.current.trending[0]?.metricLabel).toBe("Momentum");
-    expect(result.current.isEmpty).toBe(false);
+    expect(result.current.feed.groups[0]?.name).toBe("Frontend Forge");
+    expect(result.current.feed.events[0]?.title).toBe("Design Systems Review");
+    expect(result.current.data.sections[0]?.type).toBe("groups");
+    expect(result.current.data.sections[1]?.type).toBe("events");
+    expect(result.current.data.hasAnyContent).toBe(true);
   });
 
   it("keeps groups available when the events source fails", async () => {
@@ -112,11 +114,49 @@ describe("useDiscoverFeed", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
+      expect(result.current.data.isLoading).toBe(false);
     });
 
-    expect(result.current.groups).toHaveLength(1);
-    expect(result.current.eventsError?.message).toMatch(/unauthorized/i);
+    expect(result.current.feed.groups).toHaveLength(1);
+    expect(result.current.data.sections[1]?.error).toMatch(/unauthorized/i);
     expect(result.current.error).toBeNull();
+  });
+
+  it("builds a section-based discover contract with independent section errors", () => {
+    const contract = createDiscoverPageData(
+      {
+        groups: [
+          {
+            id: "frontend-forge",
+            name: "Frontend Forge",
+            description: "UI systems and accessibility.",
+            memberCount: 9840,
+            isJoined: false,
+            imageUrl: "https://example.com/group.png",
+          },
+        ],
+        events: [],
+        trending: [],
+      },
+      {
+        isLoading: false,
+        groupsError: null,
+        eventsError: new Error("Unauthorized"),
+      },
+    );
+
+    expect(contract.sections).toHaveLength(2);
+    expect(contract.sections[0]).toMatchObject({
+      type: "groups",
+      isEmpty: false,
+      error: null,
+    });
+    expect(contract.sections[1]).toMatchObject({
+      type: "events",
+      isEmpty: true,
+      error: "Unauthorized",
+    });
+    expect(contract.hasAnyContent).toBe(true);
+    expect(contract.hasAnyError).toBe(true);
   });
 });

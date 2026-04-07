@@ -13,6 +13,7 @@ export interface Message {
   type: "text" | "file" | "system";
   status: MessageStatus;
   canRetry?: boolean;
+  isMention?: boolean;
 }
 
 export interface Channel {
@@ -20,6 +21,9 @@ export interface Channel {
   name: string;
   kind: "channel" | "dm";
   unreadCount?: number;
+  unreadMentionCount?: number;
+  isMuted?: boolean;
+  lastReadAt?: string;
 }
 
 export interface Member {

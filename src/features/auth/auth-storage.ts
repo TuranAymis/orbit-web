@@ -2,6 +2,7 @@ import type { AuthSession } from "@/features/auth/types";
 
 export const AUTH_STORAGE_KEY = "orbit.auth.session";
 export const AUTH_INVALID_EVENT = "orbit:auth:invalid";
+export const AUTH_SESSION_UPDATED_EVENT = "orbit:auth:session-updated";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -79,6 +80,7 @@ export function writeStoredSession(session: AuthSession | null) {
   }
 
   window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+  window.dispatchEvent(new CustomEvent(AUTH_SESSION_UPDATED_EVENT, { detail: session }));
 }
 
 export function clearStoredSession() {
@@ -87,8 +89,17 @@ export function clearStoredSession() {
   }
 
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  window.dispatchEvent(new CustomEvent(AUTH_SESSION_UPDATED_EVENT, { detail: null }));
 }
 
 export function getStoredAccessToken(): string | null {
   return readStoredSession()?.accessToken ?? null;
+}
+
+export function updateStoredSession(
+  updater: (currentSession: AuthSession | null) => AuthSession | null,
+) {
+  const nextSession = normalizeSession(updater(readStoredSession()));
+  writeStoredSession(nextSession);
+  return nextSession;
 }

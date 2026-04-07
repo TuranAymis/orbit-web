@@ -1,3 +1,4 @@
+import { mapAuthHttpError, mapUnknownAuthError } from "@/features/auth/auth-errors";
 import { HttpError, httpClient } from "@/shared/lib/http/httpClient";
 
 export interface RegisterUserInput {
@@ -7,18 +8,6 @@ export interface RegisterUserInput {
 
 export interface RegisterUserResult {
   email: string;
-}
-
-function getRegisterErrorMessage(error: HttpError) {
-  if (error.status === 409) {
-    return "An account with this email already exists. Try signing in or verify your email instead.";
-  }
-
-  if (error.status === 400 || error.status === 422) {
-    return "We couldn't create your account. Please check your email and password, then try again.";
-  }
-
-  return error.message || "We couldn't create your account right now.";
 }
 
 export async function registerUser(
@@ -37,9 +26,9 @@ export async function registerUser(
     };
   } catch (error) {
     if (error instanceof HttpError) {
-      throw new Error(getRegisterErrorMessage(error));
+      throw mapAuthHttpError("register", error);
     }
 
-    throw new Error("Orbit could not reach the local backend.");
+    throw mapUnknownAuthError();
   }
 }

@@ -1,4 +1,4 @@
-import { Phone, Video, MoreVertical, Plus, Smile, Mic, Search } from "lucide-react";
+import { BellOff, BellRing, Phone, Video, MoreVertical, Plus, Smile, Mic, Search } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
 import { useChat } from "@/features/chat/model/useChat";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
@@ -27,9 +27,20 @@ export function ChatPage() {
     sendMessage,
     draft,
     setDraft,
+    typingLabel,
+    toggleMuteChannel,
+    isActiveChannelMuted,
+    readStateLabel,
   } = useChat({
     preferredChannelId: searchParams.get("groupId"),
   });
+
+  const connectionTone =
+    connectionStatus === "connected"
+      ? "text-emerald-300"
+      : connectionStatus === "reconnecting" || connectionStatus === "connecting"
+        ? "text-amber-300"
+        : "text-rose-300";
 
   return (
     <PageContainer
@@ -75,12 +86,39 @@ export function ChatPage() {
                       <p className="truncate text-2xl font-semibold tracking-tight text-foreground">
                         {channel.name}
                       </p>
-                      <p className="text-sm text-primary">{channel.unreadCount ? `${channel.unreadCount}m` : ""}</p>
+                      <div className="flex items-center gap-2">
+                        {channel.isMuted ? (
+                          <BellOff className="h-4 w-4 text-muted-foreground/70" />
+                        ) : null}
+                        {channel.unreadCount ? (
+                          <span
+                            className={cn(
+                              "inline-flex min-w-8 items-center justify-center rounded-full px-2 py-1 text-xs font-semibold",
+                              channel.unreadMentionCount
+                                ? "bg-amber-300/18 text-amber-200 ring-1 ring-amber-300/30"
+                                : channel.isMuted
+                                  ? "bg-white/[0.05] text-muted-foreground"
+                                  : "bg-primary/15 text-primary",
+                            )}
+                          >
+                            {channel.unreadCount}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
-                    <p className="truncate text-base text-muted-foreground">
-                      {channel.kind === "dm"
-                        ? "Direct message"
-                        : "The event starts at 8PM sharp."}
+                    <p
+                      className={cn(
+                        "truncate text-base",
+                        channel.unreadMentionCount
+                          ? "text-amber-200"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {channel.unreadMentionCount
+                        ? "Mentioned you"
+                        : channel.kind === "dm"
+                          ? "Direct message"
+                          : "The event starts at 8PM sharp."}
                     </p>
                   </div>
                 </button>
@@ -101,9 +139,14 @@ export function ChatPage() {
                 <p className="text-4xl font-bold tracking-tight text-foreground">
                   {activeChannel?.name ?? "Conversation"}
                 </p>
-                <p className="text-sm uppercase tracking-[0.2em] text-primary">
-                  Status: {connectionStatus}
-                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className={cn("text-sm uppercase tracking-[0.2em]", connectionTone)}>
+                    Status: {connectionStatus}
+                  </p>
+                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                    {readStateLabel}
+                  </p>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -113,6 +156,18 @@ export function ChatPage() {
               <Button variant="ghost" size="icon" aria-label="Video">
                 <Video className="h-5 w-5" />
               </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={isActiveChannelMuted ? "Unmute conversation" : "Mute conversation"}
+                onClick={() => activeChannelId && toggleMuteChannel(activeChannelId)}
+              >
+                {isActiveChannelMuted ? (
+                  <BellOff className="h-5 w-5 text-amber-200" />
+                ) : (
+                  <BellRing className="h-5 w-5" />
+                )}
+              </Button>
               <Button variant="ghost" size="icon" aria-label="More">
                 <MoreVertical className="h-5 w-5" />
               </Button>
@@ -120,6 +175,11 @@ export function ChatPage() {
           </div>
 
           <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
+            {typingLabel ? (
+              <div className="flex justify-center">
+                <Badge variant="muted">{typingLabel} is typing...</Badge>
+              </div>
+            ) : null}
             <div className="flex justify-center">
               <Badge variant="muted">Today</Badge>
             </div>
@@ -141,6 +201,7 @@ export function ChatPage() {
                     minute: "2-digit",
                   })}
                   isOwn={message.username === user?.name}
+                  isMention={message.isMention}
                 />
               ))
             )}

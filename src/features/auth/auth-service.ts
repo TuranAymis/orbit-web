@@ -1,5 +1,13 @@
 import { appConfig } from "@/config/appConfig";
 import {
+  AuthError,
+  OrbitAuthError,
+  getLoginErrorReason,
+  mapAuthHttpError,
+  mapLoginErrorMessage,
+  mapUnknownAuthError,
+} from "@/features/auth/auth-errors";
+import {
   formatMembershipTierLabel,
   mapBackendMembershipLevelToTier,
 } from "@/entities/membership/mappers";
@@ -27,8 +35,6 @@ const mockSession: AuthSession = {
   tokenType: "bearer",
   expiresIn: 3600,
 };
-
-export class AuthError extends Error {}
 
 function delay(ms: number) {
   return new Promise((resolve) => {
@@ -63,12 +69,6 @@ interface BackendUserResponse {
   email: string;
   membership_level?: string;
   role?: string;
-}
-
-interface BackendAuthErrorPayload {
-  detail?: string | unknown[];
-  message?: string;
-  error?: string;
 }
 
 function mapBackendRole(role?: string): OrbitUserRole {
@@ -134,41 +134,6 @@ function logAuthDebug(message: string, meta?: unknown) {
   console.info(`[orbit:auth] ${message}`, meta);
 }
 
-function getBackendAuthErrorText(error: HttpError) {
-  const payload = (error.payload ?? {}) as BackendAuthErrorPayload;
-  const parts = [error.message];
-
-  if (typeof payload.detail === "string") {
-    parts.push(payload.detail);
-  }
-
-  if (typeof payload.message === "string") {
-    parts.push(payload.message);
-  }
-
-  if (typeof payload.error === "string") {
-    parts.push(payload.error);
-  }
-
-  return parts.join(" ").trim().toLowerCase();
-}
-
-export function mapLoginErrorMessage(error: HttpError) {
-  const normalizedMessage = getBackendAuthErrorText(error);
-
-  if (
-    (error.status === 400 || error.status === 401 || error.status === 403) &&
-    (normalizedMessage.includes("inactive") ||
-      normalizedMessage.includes("not active") ||
-      normalizedMessage.includes("verify") ||
-      normalizedMessage.includes("activation"))
-  ) {
-    return "Your account is not active yet. Please verify your email before logging in.";
-  }
-
-  return error.message;
-}
-
 export async function loginWithBackendSession(
   credentials: LoginCredentials,
 ): Promise<AuthSession> {
@@ -191,9 +156,11 @@ export async function loginWithBackendSession(
     return mapBackendSession(tokenPayload, userPayload);
   } catch (error) {
     if (error instanceof HttpError) {
-      throw new AuthError(mapLoginErrorMessage(error));
+      throw mapAuthHttpError("login", error);
     }
 
-    throw new AuthError("Orbit could not reach the local backend.");
+    throw mapUnknownAuthError();
   }
 }
+
+export { AuthError, OrbitAuthError, getLoginErrorReason, mapLoginErrorMessage };

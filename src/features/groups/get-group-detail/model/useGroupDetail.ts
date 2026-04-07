@@ -7,12 +7,16 @@ import { hasValidAccessToken } from "@/features/auth/auth-storage";
 import { getGroupDetail } from "@/features/groups/get-group-detail/api/getGroupDetail";
 import { joinGroup } from "@/features/groups/join-group/api/joinGroup";
 import { leaveGroup } from "@/features/groups/leave-group/api/leaveGroup";
-import type { DiscoverFeed } from "@/features/discover/get-discover-feed/mappers/discoverMapper";
 import {
   applyJoinedGroupStateToGroupDetail,
-  mergeJoinedGroupState,
   type JoinedGroupState,
 } from "@/features/groups/model/joinedState";
+import {
+  captureGroupMembershipSnapshot,
+  restoreGroupMembershipCaches,
+  syncGroupMembershipCaches,
+} from "@/features/groups/model/membershipCache";
+import { logMutationLifecycle } from "@/shared/lib/mutations/mutationLogger";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 
 interface UseGroupDetailResult {
@@ -61,105 +65,38 @@ export function useGroupDetail(groupId?: string): UseGroupDetailResult {
     },
     onMutate: async (nextJoinedState) => {
       if (!groupId) {
-        return {
-          previousGroup: null,
-          previousGroups: null,
-          previousDiscover: null,
-          previousJoinedState: null,
-        };
+        return undefined;
       }
+
+      logMutationLifecycle("group.membership.toggle", "start", {
+        groupId,
+        nextJoinedState,
+      });
 
       await Promise.all([
         queryClient.cancelQueries({ queryKey: orbitQueryKeys.groups.detail(groupId) }),
-        queryClient.cancelQueries({ queryKey: orbitQueryKeys.groups.all }),
+        queryClient.cancelQueries({ queryKey: orbitQueryKeys.groups.list }),
         queryClient.cancelQueries({ queryKey: orbitQueryKeys.discover.feed }),
       ]);
 
-      const previousGroup = queryClient.getQueryData<GroupDetail>(
-        orbitQueryKeys.groups.detail(groupId),
-      );
-      const previousGroups = queryClient.getQueryData<Group[]>(
-        orbitQueryKeys.groups.all,
-      );
-      const previousDiscover = queryClient.getQueryData<DiscoverFeed>(
-        orbitQueryKeys.discover.feed,
-      );
-      const previousJoinedState = queryClient.getQueryData<JoinedGroupState>(
-        orbitQueryKeys.groups.joinedState,
-      );
-
-      if (previousGroup) {
-        queryClient.setQueryData<GroupDetail>(orbitQueryKeys.groups.detail(groupId), {
-          ...previousGroup,
-          isJoined: nextJoinedState,
-          memberCount: nextJoinedState
-            ? previousGroup.memberCount + 1
-            : Math.max(0, previousGroup.memberCount - 1),
-        });
+      const snapshot = captureGroupMembershipSnapshot(queryClient, groupId);
+      syncGroupMembershipCaches(queryClient, groupId, nextJoinedState);
+      return snapshot;
+    },
+    onSuccess: (_data, nextJoinedState) => {
+      if (!groupId) {
+        return;
       }
 
-      if (previousGroups) {
-        queryClient.setQueryData<Group[]>(
-          orbitQueryKeys.groups.all,
-          previousGroups.map((group) =>
-            group.id === groupId
-              ? {
-                  ...group,
-                  isJoined: nextJoinedState,
-                  memberCount: nextJoinedState
-                    ? group.memberCount + 1
-                    : Math.max(0, group.memberCount - 1),
-                }
-              : group,
-          ),
-        );
-      }
-
-      if (previousDiscover) {
-        queryClient.setQueryData<DiscoverFeed>(orbitQueryKeys.discover.feed, {
-          ...previousDiscover,
-          groups: previousDiscover.groups.map((group) =>
-            group.id === groupId
-              ? {
-                  ...group,
-                  isJoined: nextJoinedState,
-                  memberCount: nextJoinedState
-                    ? group.memberCount + 1
-                    : Math.max(0, group.memberCount - 1),
-                }
-              : group,
-          ),
-        });
-      }
-
-      queryClient.setQueryData<JoinedGroupState>(
-        orbitQueryKeys.groups.joinedState,
-        mergeJoinedGroupState(previousJoinedState, groupId, nextJoinedState),
-      );
-
-      return { previousGroup, previousGroups, previousDiscover, previousJoinedState };
+      logMutationLifecycle("group.membership.toggle", "success", {
+        groupId,
+        nextJoinedState,
+      });
     },
     onError: (_error, _nextJoinedState, context) => {
-      if (groupId && context?.previousGroup) {
-        queryClient.setQueryData(
-          orbitQueryKeys.groups.detail(groupId),
-          context.previousGroup,
-        );
-      }
-
-      if (context?.previousGroups) {
-        queryClient.setQueryData(orbitQueryKeys.groups.all, context.previousGroups);
-      }
-
-      if (context?.previousDiscover) {
-        queryClient.setQueryData(orbitQueryKeys.discover.feed, context.previousDiscover);
-      }
-
-      if (context?.previousJoinedState) {
-        queryClient.setQueryData(
-          orbitQueryKeys.groups.joinedState,
-          context.previousJoinedState,
-        );
+      if (groupId) {
+        logMutationLifecycle("group.membership.toggle", "rollback", { groupId });
+        restoreGroupMembershipCaches(queryClient, groupId, context);
       }
     },
     onSettled: async () => {
@@ -169,7 +106,7 @@ export function useGroupDetail(groupId?: string): UseGroupDetailResult {
 
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: orbitQueryKeys.groups.all,
+          queryKey: orbitQueryKeys.groups.list,
         }),
         queryClient.invalidateQueries({
           queryKey: orbitQueryKeys.groups.detail(groupId),

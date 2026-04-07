@@ -6,6 +6,7 @@ interface ChatMessageBubbleProps {
   content: string;
   timestamp: string;
   isOwn?: boolean;
+  isMention?: boolean;
 }
 
 export function ChatMessageBubble({
@@ -13,6 +14,7 @@ export function ChatMessageBubble({
   content,
   timestamp,
   isOwn = false,
+  isMention = false,
 }: ChatMessageBubbleProps) {
   return (
     <div className={cn("flex gap-4", isOwn && "justify-end")}>
@@ -27,7 +29,9 @@ export function ChatMessageBubble({
             "rounded-[24px] border px-5 py-4 text-lg leading-8",
             isOwn
               ? "border-primary/30 bg-primary/12 text-primary"
-              : "border-white/8 bg-white/[0.05] text-foreground",
+              : isMention
+                ? "border-amber-300/35 bg-amber-300/10 text-foreground shadow-[0_0_0_1px_rgba(252,211,77,0.16)]"
+                : "border-white/8 bg-white/[0.05] text-foreground",
           )}
         >
           {content}

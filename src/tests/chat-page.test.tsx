@@ -73,4 +73,33 @@ describe("ChatPage", () => {
     expect(screen.getByText(/no messages yet/i)).toBeInTheDocument();
     expect(screen.getByText(/start the conversation in support desk/i)).toBeInTheDocument();
   });
+
+  it("clears a conversation unread indicator after opening that channel", async () => {
+    const user = userEvent.setup();
+    renderChatPage();
+
+    expect(screen.getByText("1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /release squad/i }));
+
+    expect(screen.queryByText("1")).not.toBeInTheDocument();
+  });
+
+  it("toggles mute state for the active conversation", async () => {
+    const user = userEvent.setup();
+    renderChatPage();
+
+    const muteButton = screen.getByRole("button", { name: /mute conversation/i });
+    await user.click(muteButton);
+
+    expect(
+      screen.getByRole("button", { name: /unmute conversation/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a read-state indicator for the active conversation", () => {
+    renderChatPage();
+
+    expect(screen.getByText(/^Read \d{1,2}:\d{2} [AP]M$/)).toBeInTheDocument();
+  });
 });

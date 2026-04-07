@@ -1,25 +1,22 @@
 import { mapAuthHttpError, mapUnknownAuthError } from "@/features/auth/auth-errors";
 import { HttpError, httpClient } from "@/shared/lib/http/httpClient";
 
-export interface VerifyUserEmailInput {
-  email: string;
-  code: string;
-}
-
-export interface VerifyUserEmailResult {
+export interface ResendVerificationCodeInput {
   email: string;
 }
 
-export async function verifyUserEmail(
-  input: VerifyUserEmailInput,
-): Promise<VerifyUserEmailResult> {
+export interface ResendVerificationCodeResult {
+  email: string;
+}
+
+export async function resendVerificationCode(
+  input: ResendVerificationCodeInput,
+): Promise<ResendVerificationCodeResult> {
   const normalizedEmail = input.email.trim().toLowerCase();
-  const normalizedCode = input.code.trim();
 
   try {
-    await httpClient.post("/auth/verify", {
+    await httpClient.post("/auth/resend-verification-code", {
       email: normalizedEmail,
-      code: normalizedCode,
     });
 
     return {
@@ -27,7 +24,7 @@ export async function verifyUserEmail(
     };
   } catch (error) {
     if (error instanceof HttpError) {
-      throw mapAuthHttpError("verify", error);
+      throw mapAuthHttpError("resend_verification", error);
     }
 
     throw mapUnknownAuthError();

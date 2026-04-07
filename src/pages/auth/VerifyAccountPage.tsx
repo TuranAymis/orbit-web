@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useResendVerificationCode } from "@/features/auth/resend-verification-code/model/useResendVerificationCode";
 import { useVerifyUserEmail } from "@/features/auth/verify/model/useVerifyUserEmail";
 import { useMutationFeedback } from "@/shared/lib/mutations/useMutationFeedback";
 import { Button } from "@/shared/ui/button";
@@ -31,6 +32,7 @@ export function VerifyAccountPage() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const verifyMutation = useVerifyUserEmail();
+  const resendMutation = useResendVerificationCode();
   const { message, clearMessage } = useMutationFeedback(verifyMutation.error);
   const locationState = (location.state ?? null) as VerifyAccountLocationState | null;
   const [email, setEmail] = useState(
@@ -38,6 +40,26 @@ export function VerifyAccountPage() {
   );
   const [code, setCode] = useState("");
   const [errors, setErrors] = useState<VerifyFormErrors>({});
+  const [statusMessage, setStatusMessage] = useState<string | null>(
+    locationState?.notice ?? null,
+  );
+  const [resendError, setResendError] = useState<string | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const hasPrefilledEmail = email.trim().length > 0;
+
+  useEffect(() => {
+    if (cooldownRemaining <= 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCooldownRemaining((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [cooldownRemaining]);
 
   function validateForm() {
     const nextErrors: VerifyFormErrors = {};
@@ -68,9 +90,9 @@ export function VerifyAccountPage() {
             Enter the email address you registered with and the activation code from your inbox.
           </p>
         </div>
-        {locationState?.notice ? (
+        {statusMessage ? (
           <p className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
-            {locationState.notice}
+            {statusMessage}
           </p>
         ) : null}
         <form
@@ -79,6 +101,7 @@ export function VerifyAccountPage() {
           onSubmit={async (event) => {
             event.preventDefault();
             clearMessage();
+            setResendError(null);
 
             if (!validateForm()) {
               return;
@@ -141,12 +164,25 @@ export function VerifyAccountPage() {
               </p>
             )}
           </div>
+          {!hasPrefilledEmail ? (
+            <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-muted-foreground">
+              Enter the email address you registered with, then paste the verification code from your inbox.
+            </p>
+          ) : null}
           {message ? (
             <p
               role="alert"
               className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-200"
             >
               {message}
+            </p>
+          ) : null}
+          {resendError ? (
+            <p
+              role="alert"
+              className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-200"
+            >
+              {resendError}
             </p>
           ) : null}
           <Button
@@ -159,6 +195,53 @@ export function VerifyAccountPage() {
           </Button>
         </form>
         <div className="mt-6 space-y-2 text-sm text-muted-foreground">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">Didn&apos;t get the code?</p>
+              <p className="text-xs text-muted-foreground">
+                {cooldownRemaining > 0
+                  ? `You can request another code in ${cooldownRemaining} seconds.`
+                  : "Send a fresh verification email to the same address."}
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-live="polite"
+              disabled={resendMutation.isPending || cooldownRemaining > 0}
+              onClick={async () => {
+                setResendError(null);
+                setStatusMessage(null);
+                clearMessage();
+
+                if (!isValidEmail(email.trim())) {
+                  setErrors((current) => ({
+                    ...current,
+                    email: "Please enter a valid email address.",
+                  }));
+                  return;
+                }
+
+                try {
+                  await resendMutation.mutateAsync({ email });
+                  setStatusMessage("A new verification code has been sent.");
+                  setCooldownRemaining(30);
+                } catch (error) {
+                  setResendError(
+                    error instanceof Error
+                      ? error.message
+                      : "We couldn't resend the verification code right now.",
+                  );
+                }
+              }}
+            >
+              {resendMutation.isPending
+                ? "Sending..."
+                : cooldownRemaining > 0
+                  ? `Resend in ${cooldownRemaining}s`
+                  : "Resend code"}
+            </Button>
+          </div>
           <p>
             Already activated?{" "}
             <Link

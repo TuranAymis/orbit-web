@@ -22,7 +22,7 @@ export function useGroups(): UseGroupsResult {
   const queryClient = useQueryClient();
   const isQueryEnabled = authReady && !isAuthLoading && isAuthenticated && hasValidAccessToken(session);
   const query = useQuery({
-    queryKey: orbitQueryKeys.groups.all,
+    queryKey: orbitQueryKeys.groups.list,
     queryFn: listGroups,
     enabled: isQueryEnabled,
   });

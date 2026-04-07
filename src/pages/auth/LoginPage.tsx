@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArrowRight, AtSign, LockKeyhole } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { AuthError } from "@/features/auth/auth-service";
+import { AuthError, OrbitAuthError } from "@/features/auth/auth-service";
 import { useAuth } from "@/features/auth/useAuth";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -14,19 +14,24 @@ export function LoginPage() {
   const [email, setEmail] = useState(() => searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showActivationHelp, setShowActivationHelp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const verificationSuccess = searchParams.get("verified") === "1";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setShowActivationHelp(false);
     setIsSubmitting(true);
 
     try {
       await login({ email, password });
       navigate("/discover", { replace: true });
     } catch (submissionError) {
-      if (submissionError instanceof AuthError) {
+      if (submissionError instanceof OrbitAuthError) {
+        setError(submissionError.message);
+        setShowActivationHelp(submissionError.reason === "inactive_account");
+      } else if (submissionError instanceof AuthError) {
         setError(submissionError.message);
       } else {
         setError("We could not sign you in. Please try again.");
@@ -67,9 +72,21 @@ export function LoginPage() {
               ) : null}
 
               {verificationSuccess ? (
-                <p className="rounded-[18px] border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                  Your account is active now. Sign in to continue.
-                </p>
+                <div className="space-y-3 rounded-[18px] border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+                  <p>Your account has been verified. You can now log in.</p>
+                  <button
+                    type="button"
+                    className="inline-flex text-xs font-semibold uppercase tracking-[0.2em] text-primary"
+                    onClick={() => {
+                      const passwordInput = document.querySelector<HTMLInputElement>(
+                        'input[aria-label="Password"]',
+                      );
+                      passwordInput?.focus();
+                    }}
+                  >
+                    Continue to sign in
+                  </button>
+                </div>
               ) : null}
 
               <form className="space-y-5" onSubmit={handleSubmit}>
@@ -115,12 +132,24 @@ export function LoginPage() {
                 </label>
 
                 {error ? (
-                  <p
+                  <div
                     role="alert"
-                    className="rounded-[18px] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
+                    className="space-y-3 rounded-[18px] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
                   >
-                    {error}
-                  </p>
+                    <p>{error}</p>
+                    {showActivationHelp ? (
+                      <Link
+                        className="inline-flex text-xs font-semibold uppercase tracking-[0.2em] text-primary"
+                        to={
+                          email
+                            ? `/verify-account?email=${encodeURIComponent(email.trim().toLowerCase())}`
+                            : "/verify-account"
+                        }
+                      >
+                        Verify your email
+                      </Link>
+                    ) : null}
+                  </div>
                 ) : null}
 
                 <Button

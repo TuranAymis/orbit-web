@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers/AppProviders";
@@ -16,9 +16,12 @@ import { useCreateGroup } from "@/features/groups/create-group/model/useCreateGr
 import * as createGroupApi from "@/features/groups/create-group/api/createGroup";
 import { useDeleteGroup } from "@/features/groups/delete-group/model/useDeleteGroup";
 import * as deleteGroupApi from "@/features/groups/delete-group/api/deleteGroup";
+import { useUpgradeMembership } from "@/features/membership/upgrade-membership/model/useUpgradeMembership";
+import * as upgradeMembershipApi from "@/features/membership/upgrade-membership/api/upgradeMembership";
 import { useGroupDetail } from "@/features/groups/get-group-detail/model/useGroupDetail";
 import * as groupDetailApi from "@/features/groups/get-group-detail/api/getGroupDetail";
 import * as joinGroupApi from "@/features/groups/join-group/api/joinGroup";
+import { readStoredSession, writeStoredSession } from "@/features/auth/auth-storage";
 import type { DiscoverFeed } from "@/features/discover/get-discover-feed/mappers/discoverMapper";
 import { createOrbitQueryClient } from "@/shared/lib/query/query-client";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
@@ -224,6 +227,119 @@ describe("query-backed mutations", () => {
     });
   });
 
+  it("rolls back group caches when joining a group fails", async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    const groupListItem = {
+      id: groupDetail.id,
+      name: groupDetail.name,
+      description: groupDetail.description,
+      memberCount: groupDetail.memberCount,
+      imageUrl: groupDetail.coverImageUrl,
+      isJoined: false,
+    };
+
+    queryClient.setQueryData(orbitQueryKeys.groups.detail(groupDetail.id), groupDetail);
+    queryClient.setQueryData(orbitQueryKeys.groups.list, [groupListItem]);
+    queryClient.setQueryData(orbitQueryKeys.discover.feed, {
+      groups: [groupListItem],
+      events: [],
+      trending: [],
+    });
+
+    vi.spyOn(groupDetailApi, "getGroupDetail").mockResolvedValue(groupDetail);
+    vi.spyOn(joinGroupApi, "joinGroup").mockRejectedValue(new Error("Join failed"));
+
+    const { result } = renderHook(() => useGroupDetail(groupDetail.id), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.data?.id).toBe(groupDetail.id);
+    });
+
+    await expect(result.current.toggleMembership()).rejects.toThrow(/join failed/i);
+
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryData<typeof groupListItem[]>(orbitQueryKeys.groups.list)?.[0],
+      ).toMatchObject({
+        isJoined: false,
+        memberCount: groupDetail.memberCount,
+      });
+      expect(
+        queryClient.getQueryData<DiscoverFeed>(orbitQueryKeys.discover.feed)?.groups[0],
+      ).toMatchObject({
+        isJoined: false,
+        memberCount: groupDetail.memberCount,
+      });
+      expect(
+        queryClient.getQueryData<GroupDetail>(orbitQueryKeys.groups.detail(groupDetail.id)),
+      ).toMatchObject({
+        isJoined: false,
+        memberCount: groupDetail.memberCount,
+      });
+    });
+  });
+
+  it("rolls back event caches when joining an event fails", async () => {
+    const { queryClient, Wrapper } = createWrapper();
+
+    const eventListItem: EventListItem = {
+      id: eventDetail.id,
+      title: eventDetail.title,
+      description: eventDetail.description,
+      coverImageUrl: eventDetail.coverImageUrl,
+      startsAt: eventDetail.startsAt,
+      endsAt: eventDetail.endsAt,
+      location: eventDetail.location,
+      attendeeCount: eventDetail.attendeeCount,
+      isJoined: false,
+      category: eventDetail.category,
+    };
+
+    queryClient.setQueryData(orbitQueryKeys.events.detail(eventDetail.id), eventDetail);
+    queryClient.setQueryData(orbitQueryKeys.events.list, [eventListItem]);
+    queryClient.setQueryData(orbitQueryKeys.discover.feed, {
+      groups: [],
+      events: [eventListItem],
+      trending: [],
+    });
+
+    vi.spyOn(eventDetailApi, "getEventDetail").mockResolvedValue(eventDetail);
+    vi.spyOn(joinEventApi, "joinEvent").mockRejectedValue(new Error("Join failed"));
+
+    const { result } = renderHook(() => useEventDetail(eventDetail.id), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.data?.id).toBe(eventDetail.id);
+    });
+
+    await expect(result.current.toggleAttendance()).rejects.toThrow(/join failed/i);
+
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryData<EventListItem[]>(orbitQueryKeys.events.list)?.[0],
+      ).toMatchObject({
+        isJoined: false,
+        attendeeCount: eventDetail.attendeeCount,
+      });
+      expect(
+        queryClient.getQueryData<DiscoverFeed>(orbitQueryKeys.discover.feed)?.events[0],
+      ).toMatchObject({
+        isJoined: false,
+        attendeeCount: eventDetail.attendeeCount,
+      });
+      expect(
+        queryClient.getQueryData<EventDetail>(orbitQueryKeys.events.detail(eventDetail.id)),
+      ).toMatchObject({
+        isJoined: false,
+        attendeeCount: eventDetail.attendeeCount,
+      });
+    });
+  });
+
   it("invalidates groups and discover after creating a group", async () => {
     const { queryClient, Wrapper } = createWrapper();
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
@@ -310,7 +426,9 @@ describe("query-backed mutations", () => {
       wrapper: Wrapper,
     });
 
-    await result.current.mutateAsync();
+    await act(async () => {
+      await result.current.mutateAsync();
+    });
 
     await waitFor(() => {
       expect(invalidateSpy).toHaveBeenCalledWith({
@@ -353,6 +471,40 @@ describe("query-backed mutations", () => {
       expect(invalidateSpy).toHaveBeenCalledWith({
         queryKey: orbitQueryKeys.groups.detail(groupDetail.id),
       });
+    });
+  });
+
+  it("updates membership cache and stored session after upgrading", async () => {
+    const { queryClient, Wrapper } = createWrapper();
+
+    writeStoredSession(demoSession);
+    queryClient.setQueryData(orbitQueryKeys.membership.current, {
+      tier: "free",
+      status: "active",
+      startedAt: "2026-03-01T12:00:00.000Z",
+      renewsAt: "2026-05-01T12:00:00.000Z",
+      benefits: [],
+      limits: {
+        groupJoinsPerMonth: 10,
+        eventRsvpsPerMonth: 8,
+        storageGb: 1,
+      },
+    });
+    vi.spyOn(upgradeMembershipApi, "upgradeMembership").mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useUpgradeMembership(), {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync();
+    });
+
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryData<{ tier: string }>(orbitQueryKeys.membership.current)?.tier,
+      ).toBe("premium");
+      expect(readStoredSession()?.user.membershipTier).toBe("Premium");
     });
   });
 });

@@ -2,18 +2,23 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { LayoutGrid, List, MessageSquareText, RefreshCcw } from "lucide-react";
 import { useDiscoverFeed } from "@/features/discover/get-discover-feed/model/useDiscoverFeed";
+import {
+  getDiscoverSection,
+  type DiscoverPageSection,
+} from "@/features/discover/get-discover-feed/model/discoverPageData";
 import { useJoinGroup } from "@/features/groups/join-group/model/useJoinGroup";
 import { useMutationFeedback } from "@/shared/lib/mutations/useMutationFeedback";
-import { AsyncState } from "@/shared/ui/AsyncState";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { PageContainer } from "@/shared/ui/page-container";
 import { Tabs } from "@/shared/ui/tabs";
-import { LoadingState } from "@/shared/ui/LoadingState";
-import { GroupCard } from "@/entities/group/ui/GroupCard";
+import { EmptyState } from "@/shared/ui/EmptyState";
+import { ErrorState } from "@/shared/ui/ErrorState";
 import { FeedCard } from "@/widgets/orbit/FeedCard";
-import { EventCard } from "@/entities/event/ui/EventCard";
+import { DiscoverGroupsSection } from "@/widgets/discover/DiscoverGroupsSection";
+import { DiscoverEventsSection } from "@/widgets/discover/DiscoverEventsSection";
+import { DiscoverSectionSkeleton } from "@/widgets/discover/DiscoverSectionSkeleton";
 
 type DiscoverTab = "for-you" | "trending" | "latest";
 interface DiscoverFeedCardItem {
@@ -28,40 +33,64 @@ interface DiscoverFeedCardItem {
 
 export function DiscoverPage() {
   const [activeTab, setActiveTab] = useState<DiscoverTab>("for-you");
-  const {
-    groups,
-    events,
-    trending,
-    isLoading,
-    error,
-    groupsError,
-    eventsError,
-    refetch,
-  } = useDiscoverFeed();
+  const { data, feed, error, refetch } = useDiscoverFeed();
   const joinGroupMutation = useJoinGroup();
   const { message, clearMessage } = useMutationFeedback(joinGroupMutation.error);
+  const groupsSection = getDiscoverSection(data.sections, "groups");
+  const eventsSection = getDiscoverSection(data.sections, "events");
 
-  const featuredGroup = groups[0];
-  const highlightedEvent = events[0];
+  const featuredGroup = groupsSection?.items[0];
+  const highlightedEvent = eventsSection?.items[0];
   const heroTitle = "Local Reality";
   const heroDescription =
     featuredGroup?.description ??
     "Join the underground Orbit network of synthetic creators and shape what comes next.";
 
-  const feedItems = useMemo<DiscoverFeedCardItem[]>(() => {
-    if (activeTab === "trending") {
-      return trending.slice(0, 4).map((item) => ({
-        id: item.id,
-        author: item.kind?.toUpperCase() ?? "TREND",
-        meta: item.metricLabel,
-        title: item.title,
-        description: item.description,
-        tag: item.metricValue,
-      }));
-    }
+  const visibleSections = useMemo<DiscoverPageSection[]>(() => {
+    const sections = data.sections.map((section) => {
+      if (activeTab === "trending") {
+        if (section.type === "groups") {
+          return {
+            ...section,
+            title: "Trending Groups",
+            items: [...section.items].sort((left, right) => right.memberCount - left.memberCount),
+          };
+        }
+
+        return {
+          ...section,
+          title: "Trending Events",
+          items: [...section.items].sort((left, right) => right.attendeeCount - left.attendeeCount),
+        };
+      }
+
+      if (activeTab === "latest" && section.type === "events") {
+        return {
+          ...section,
+          title: "Latest Events",
+          items: [...section.items].sort(
+            (left, right) =>
+              new Date(right.startsAt).getTime() - new Date(left.startsAt).getTime(),
+          ),
+        };
+      }
+
+      return section;
+    });
 
     if (activeTab === "latest") {
-      return events.slice(0, 3).map((event) => ({
+      return sections.filter((section) => section.type === "events");
+    }
+
+    return sections;
+  }, [activeTab, data.sections]);
+
+  const feedItems = useMemo<DiscoverFeedCardItem[]>(() => {
+    const currentEvents = getDiscoverSection(visibleSections, "events")?.items ?? [];
+    const currentGroups = getDiscoverSection(visibleSections, "groups")?.items ?? [];
+
+    if (activeTab === "latest") {
+      return currentEvents.slice(0, 3).map((event) => ({
         id: event.id,
         author: event.category,
         meta: new Date(event.startsAt).toLocaleString("en-US", {
@@ -77,7 +106,30 @@ export function DiscoverPage() {
       }));
     }
 
-    return groups.slice(0, 3).map((group) => ({
+    if (activeTab === "trending") {
+      return [
+        ...currentGroups.slice(0, 2).map((group) => ({
+          id: `trend_group_${group.id}`,
+          author: "GROUP",
+          meta: `${group.memberCount.toLocaleString()} members`,
+          title: `${group.name} is trending`,
+          description: group.description,
+          imageUrl: group.imageUrl,
+          tag: "Trending",
+        })),
+        ...currentEvents.slice(0, 2).map((event) => ({
+          id: `trend_event_${event.id}`,
+          author: "EVENT",
+          meta: `${event.attendeeCount.toLocaleString()} attendees`,
+          title: `${event.title} is gaining momentum`,
+          description: event.description,
+          imageUrl: event.coverImageUrl,
+          tag: "Trending",
+        })),
+      ];
+    }
+
+    return currentGroups.slice(0, 3).map((group) => ({
       id: group.id,
       author: "Vector Void",
       meta: `${group.memberCount.toLocaleString()} members`,
@@ -86,7 +138,7 @@ export function DiscoverPage() {
       imageUrl: group.imageUrl,
       tag: group.isJoined ? "Joined" : "For You",
     }));
-  }, [activeTab, events, groups, trending]);
+  }, [activeTab, visibleSections]);
 
   return (
     <PageContainer
@@ -155,39 +207,18 @@ export function DiscoverPage() {
             </div>
           </div>
 
-          {error || (activeTab === "latest" && eventsError) ? (
-            <div className="rounded-[24px] border border-destructive/20 bg-destructive/5 px-6 py-10 text-center">
-              <h3 className="text-xl font-semibold text-foreground">
-                We couldn&apos;t load Discover right now
-              </h3>
-              <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                Try again to refresh the aggregated discover feed.
-              </p>
-              <Button className="mt-5" variant="outline" onClick={() => void refetch()}>
-                Retry
-              </Button>
-            </div>
-          ) : !isLoading && feedItems.length === 0 ? (
-            <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.03] px-6 py-12 text-center">
-              <h3 className="text-xl font-semibold text-foreground">No groups are ready yet</h3>
-              <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                Refresh for a fresh sync or browse live events while the network catches up.
-              </p>
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                <Button variant="outline" onClick={() => void refetch()}>
-                  Refresh feed
-                </Button>
-                <Button variant="secondary">Browse events</Button>
-              </div>
-            </div>
+          {error ? (
+            <ErrorState
+              title="We couldn't load Discover right now"
+              description="Try again to refresh the discover feed."
+              onAction={() => void refetch()}
+            />
+          ) : !data.isLoading && !data.hasAnyContent && !data.hasAnyError ? (
+            <EmptyState
+              title="Discover is quiet right now"
+              description="Refresh for a fresh sync or browse live events while the network catches up."
+            />
           ) : (
-            <AsyncState
-              isLoading={isLoading}
-              error={null}
-              isEmpty={false}
-              onRetry={() => void refetch()}
-              loadingFallback={<LoadingState data-testid="discover-loading" />}
-            >
             <div className="space-y-6">
               {feedItems[0] ? (
                 <FeedCard
@@ -200,26 +231,37 @@ export function DiscoverPage() {
                 />
               ) : null}
 
-              <div className="grid gap-5 lg:grid-cols-2">
-                {groups.slice(0, 2).map((group) => (
-                  <GroupCard
-                    key={group.id}
-                    group={group}
-                    isJoining={joinGroupMutation.pendingGroupId === group.id}
-                    onJoinGroup={(groupId) => void joinGroupMutation.joinById(groupId)}
-                  />
-                ))}
-              </div>
-
-              {activeTab === "latest" ? (
-                <div className="grid gap-5 lg:grid-cols-2">
-                  {events.slice(0, 2).map((event) => (
-                    <EventCard key={event.id} event={event} />
-                  ))}
+              {data.isLoading ? (
+                <div data-testid="discover-loading" className="space-y-6">
+                  <DiscoverSectionSkeleton />
+                  <DiscoverSectionSkeleton />
                 </div>
-              ) : null}
+              ) : (
+                visibleSections.map((section) =>
+                  section.type === "groups" ? (
+                    <DiscoverGroupsSection
+                      key={section.type}
+                      title={section.title}
+                      description={section.description}
+                      groups={section.items.slice(0, 2)}
+                      error={section.error}
+                      isJoiningGroupId={joinGroupMutation.pendingGroupId}
+                      onJoinGroup={(groupId) => void joinGroupMutation.joinById(groupId)}
+                      onRetry={() => void refetch()}
+                    />
+                  ) : (
+                    <DiscoverEventsSection
+                      key={section.type}
+                      title={section.title}
+                      description={section.description}
+                      events={section.items.slice(0, 2)}
+                      error={section.error}
+                      onRetry={() => void refetch()}
+                    />
+                  ),
+                )
+              )}
             </div>
-            </AsyncState>
           )}
         </div>
 
@@ -230,7 +272,7 @@ export function DiscoverPage() {
                 <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                   Upcoming rituals
                 </p>
-                {events.slice(0, 2).map((event) => (
+                {feed.events.slice(0, 2).map((event) => (
                   <Link
                     key={event.id}
                     to={`/events/${event.id}`}

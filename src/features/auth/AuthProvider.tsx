@@ -10,6 +10,7 @@ import {
 import { loginWithBackendSession } from "@/features/auth/auth-service";
 import {
   AUTH_INVALID_EVENT,
+  AUTH_SESSION_UPDATED_EVENT,
   isAuthenticatedSession,
   normalizeSession,
   readStoredSession,
@@ -59,10 +60,19 @@ export function AuthProvider({
       writeStoredSession(null);
     }
 
+    function handleSessionUpdated(event: Event) {
+      const nextSession = normalizeSession(
+        (event as CustomEvent<AuthSession | null>).detail ?? null,
+      );
+      setSession(nextSession);
+    }
+
     window.addEventListener(AUTH_INVALID_EVENT, handleInvalidSession);
+    window.addEventListener(AUTH_SESSION_UPDATED_EVENT, handleSessionUpdated);
 
     return () => {
       window.removeEventListener(AUTH_INVALID_EVENT, handleInvalidSession);
+      window.removeEventListener(AUTH_SESSION_UPDATED_EVENT, handleSessionUpdated);
     };
   }, []);
 
