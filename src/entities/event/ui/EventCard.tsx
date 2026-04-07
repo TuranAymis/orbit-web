@@ -10,8 +10,8 @@ interface EventCardProps {
 export function EventCard({ event }: EventCardProps) {
   return (
     <Link to={`/events/${event.id}`} className="block">
-      <Card className="group overflow-hidden border-white/10 bg-white/[0.03] transition duration-200 hover:-translate-y-1 hover:border-primary/30 hover:bg-white/[0.05]">
-        <div className="relative aspect-[16/10] overflow-hidden border-b border-white/10">
+      <Card className="group overflow-hidden border-white/8 bg-[#15151b] transition duration-200 hover:-translate-y-1 hover:border-primary/30 hover:shadow-[0_18px_50px_rgba(182,100,255,0.10)]">
+        <div className="relative aspect-[16/10] overflow-hidden border-b border-white/8">
           <img
             src={event.coverImageUrl}
             alt={event.title}
@@ -24,10 +24,10 @@ export function EventCard({ event }: EventCardProps) {
         </div>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">
+            <h3 className="text-3xl font-bold tracking-tight text-foreground">
               {event.title}
             </h3>
-            <p className="line-clamp-3 text-sm leading-6 text-muted-foreground">
+            <p className="line-clamp-3 text-base leading-8 text-muted-foreground">
               {event.description}
             </p>
           </div>

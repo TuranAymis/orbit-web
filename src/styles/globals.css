@@ -3,20 +3,24 @@
 @tailwind utilities;
 
 :root {
-  --background: 232 34% 8%;
-  --foreground: 228 33% 96%;
-  --card: 232 30% 11%;
-  --card-foreground: 228 33% 96%;
-  --primary: 270 95% 70%;
-  --primary-foreground: 240 35% 10%;
-  --accent: 260 35% 18%;
-  --accent-foreground: 228 33% 96%;
-  --muted: 230 21% 16%;
-  --muted-foreground: 227 12% 68%;
-  --border: 234 16% 20%;
-  --input: 234 16% 20%;
-  --ring: 270 95% 70%;
-  --radius: 1rem;
+  --background: 240 19% 6%;
+  --foreground: 0 0% 96%;
+  --card: 240 13% 10%;
+  --card-foreground: 0 0% 96%;
+  --primary: 273 98% 73%;
+  --primary-foreground: 240 30% 8%;
+  --accent: 258 22% 16%;
+  --accent-foreground: 0 0% 96%;
+  --muted: 240 12% 14%;
+  --muted-foreground: 240 10% 68%;
+  --border: 240 10% 17%;
+  --input: 240 10% 17%;
+  --ring: 273 98% 73%;
+  --radius: 1.25rem;
+  --surface: 240 14% 8%;
+  --surface-elevated: 240 12% 12%;
+  --panel: 240 12% 9%;
+  --glow: 186 98% 71%;
 }
 
 * {
@@ -32,10 +36,11 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(122, 58, 235, 0.15), transparent 24%),
+    radial-gradient(circle at top, rgba(182, 100, 255, 0.12), transparent 20%),
+    radial-gradient(circle at bottom right, rgba(0, 238, 255, 0.06), transparent 18%),
     hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: "Space Grotesk", Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 #root {
@@ -45,4 +50,9 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+::selection {
+  background: rgba(182, 100, 255, 0.35);
+  color: hsl(var(--foreground));
 }

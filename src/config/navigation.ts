@@ -29,27 +29,27 @@ export const navigationItems: NavigationItem[] = [
     icon: UsersRound,
   },
   {
-    title: "Chat",
-    description: "Stay connected in real time",
-    to: "/chat",
-    icon: MessageSquareText,
-  },
-  {
     title: "Events",
     description: "Find upcoming sessions and meetups",
     to: "/events",
     icon: Sparkles,
   },
   {
-    title: "Settings",
-    description: "Adjust your account preferences",
-    to: "/settings",
-    icon: Settings,
-  },
-  {
     title: "Membership",
     description: "Review plans, perks, and billing",
     to: "/membership",
     icon: Gem,
+  },
+  {
+    title: "Chat",
+    description: "Stay connected in real time",
+    to: "/chat",
+    icon: MessageSquareText,
+  },
+  {
+    title: "Settings",
+    description: "Adjust your account preferences",
+    to: "/settings",
+    icon: Settings,
   },
 ];
