@@ -60,3 +60,8 @@ tmp/
 
 .DS_Store
 Thumbs.db
+
+# Generated Tailwind config files
+tailwind.config.js
+tailwind.config.js.map
+tailwind.config.d.ts
