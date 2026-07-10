@@ -1,5 +1,5 @@
 # Orbit Web
-
+![CI](https://github.com/TuranAymis/orbit-web/actions/workflows/ci.yml/badge.svg)
 ## Acceptance Criteria
 
 - The app boots without crashing.
