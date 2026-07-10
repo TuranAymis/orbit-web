@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import { MapPin, ShieldCheck, UsersRound } from "lucide-react";
 import type { GroupDetail } from "@/entities/group/model/types";
 import { Button } from "@/shared/ui/button";
@@ -49,7 +49,7 @@ export function GroupHeroCard({
             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-2">
                 <UsersRound className="h-4 w-4 text-primary" />
-                {group.memberCount.toLocaleString()} members
+                {group.memberCount.toLocaleString("en-US")} members
               </span>
               <span className="inline-flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-primary" />
@@ -83,3 +83,4 @@ export function GroupHeroCard({
     </Card>
   );
 }
+

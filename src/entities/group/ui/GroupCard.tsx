@@ -1,4 +1,4 @@
-import { UsersRound } from "lucide-react";
+﻿import { UsersRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Group } from "@/entities/group/model/types";
 import { Button } from "@/shared/ui/button";
@@ -36,7 +36,7 @@ export function GroupCard({
           </div>
           <div className="absolute left-4 bottom-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/45 px-3 py-1 text-xs font-medium text-foreground backdrop-blur">
             <UsersRound className="h-3.5 w-3.5 text-primary" />
-            <span>{group.memberCount.toLocaleString()} members</span>
+            <span>{group.memberCount.toLocaleString("en-US")} members</span>
           </div>
         </div>
         <CardContent className="space-y-3">
@@ -65,3 +65,4 @@ export function GroupCard({
     </Card>
   );
 }
+

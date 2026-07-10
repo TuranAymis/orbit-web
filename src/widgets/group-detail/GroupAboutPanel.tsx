@@ -1,4 +1,4 @@
-import type { GroupDetail } from "@/entities/group/model/types";
+﻿import type { GroupDetail } from "@/entities/group/model/types";
 import { Card, CardContent } from "@/shared/ui/card";
 
 interface GroupAboutPanelProps {
@@ -10,7 +10,7 @@ export function GroupAboutPanel({ group }: GroupAboutPanelProps) {
     { label: "Category", value: group.category || "Community" },
     { label: "Location", value: group.location || "Global" },
     { label: "Founder", value: group.founder || "Orbit Team" },
-    { label: "Members", value: group.memberCount.toLocaleString() },
+    { label: "Members", value: group.memberCount.toLocaleString("en-US") },
   ];
 
   return (
@@ -78,3 +78,4 @@ export function GroupAboutPanel({ group }: GroupAboutPanelProps) {
     </div>
   );
 }
+
