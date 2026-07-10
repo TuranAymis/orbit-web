@@ -1,1 +1,62 @@
-node_modules
+# Dependencies
+
+node_modules/
+
+# Build outputs
+
+dist/
+dist-ssr/
+
+# TypeScript incremental build files
+
+*.tsbuildinfo
+
+# Generated Vite config files
+
+vite.config.js
+vite.config.js.map
+vite.config.d.ts
+
+# Test coverage
+
+coverage/
+
+# Logs
+
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment files
+
+.env
+.env.*
+!.env.example
+
+# Cache and temporary files
+
+.cache/
+.temp/
+tmp/
+*.local
+
+# Editor files
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Operating system files
+
+.DS_Store
+Thumbs.db
