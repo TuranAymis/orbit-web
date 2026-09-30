@@ -10,10 +10,11 @@ import { httpClient } from "@/shared/lib/http/httpClient";
 
 interface BackendChatResponse {
   id: string;
-  sender_id: string;
+  user_id: string;
+  username?: string | null;
   group_id?: string | null;
   event_id?: string | null;
-  message: string;
+  content: string;
   created_at: string;
 }
 
@@ -26,10 +27,10 @@ function mapChatResponse(
     clientMessageId: fallback.clientMessageId,
     serverMessageId: payload.id,
     channelId: payload.group_id ?? payload.event_id ?? fallback.channelId,
-    userId: payload.sender_id,
-    username: fallback.username,
+    userId: payload.user_id,
+    username: payload.username ?? fallback.username,
     avatarFallback: fallback.avatarFallback,
-    content: payload.message,
+    content: payload.content,
     createdAt: payload.created_at,
     type: "text",
     status: "sent",
@@ -58,7 +59,7 @@ export function createHttpChatTransport(): ChatTransport {
     async sendMessage(message: TransportOutgoingMessage): Promise<ChatSendResult> {
       const payload = await httpClient.post<BackendChatResponse>("/chats", {
         group_id: message.channelId,
-        message: message.content,
+        content: message.content,
       });
 
       const resolvedMessage = mapChatResponse(payload, message);
