@@ -28,9 +28,12 @@ export const appConfig: AppConfig = {
   apiUrl,
   apiBaseUrl: apiUrl,
   socketUrl,
+  // Tests always use the mock transport so a developer's local .env.local cannot change them.
   chatTransportMode:
-    (import.meta.env.VITE_ORBIT_CHAT_TRANSPORT as ChatTransportMode | undefined) ??
-    defaultTransportMode,
+    import.meta.env.MODE === "test"
+      ? "mock"
+      : ((import.meta.env.VITE_ORBIT_CHAT_TRANSPORT as ChatTransportMode | undefined) ??
+        defaultTransportMode),
   chatSocketPath:
     import.meta.env.VITE_ORBIT_CHAT_SOCKET_PATH ?? "/socket.io",
   chatSocketNamespace:

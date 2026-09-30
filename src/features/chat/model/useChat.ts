@@ -122,10 +122,11 @@ const mockMessages: Message[] = [
 
 interface BackendChatResponse {
   id: string;
-  sender_id: string;
+  user_id: string;
+  username?: string | null;
   group_id?: string | null;
   event_id?: string | null;
-  message: string;
+  content: string;
   created_at: string;
 }
 
@@ -222,12 +223,16 @@ function mapBackendMessages(
       clientMessageId: message.id,
       serverMessageId: message.id,
       channelId: message.group_id ?? message.event_id ?? channelId,
-      userId: message.sender_id,
+      userId: message.user_id,
       username:
-        message.sender_id === currentUser?.id ? currentUser.name : "Orbit Member",
+        message.user_id === currentUser?.id
+          ? currentUser.name
+          : (message.username ?? "Orbit Member"),
       avatarFallback:
-        message.sender_id === currentUser?.id ? currentUser.avatarFallback : "OM",
-      content: message.message,
+        message.user_id === currentUser?.id
+          ? currentUser.avatarFallback
+          : (message.username ?? "Orbit Member").slice(0, 2).toUpperCase(),
+      content: message.content,
       createdAt: message.created_at,
       type: "text",
       status: "sent",
@@ -308,7 +313,9 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
         kind: "channel",
       }));
     },
-    initialData: usesSeedData ? mockChannels : [],
+    // No initialData against the real backend: an empty initial value plus staleTime would stop
+    // the group list (and therefore the channels) from ever loading on the first visit.
+    initialData: usesSeedData ? mockChannels : undefined,
     staleTime: 30_000,
   });
 
