@@ -19,6 +19,7 @@ import {
 import { createMockChatTransport } from "@/features/chat/transport/mockChatTransport";
 import { withMentionStateForIdentity } from "@/features/chat/model/mentions";
 import { createSocketChatTransport } from "@/features/chat/transport/socketChatTransport";
+import { createWebSocketChatTransport } from "@/features/chat/transport/webSocketChatTransport";
 import { listGroups } from "@/features/groups/list-groups/api/listGroups";
 import { httpClient } from "@/shared/lib/http/httpClient";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
@@ -136,6 +137,8 @@ interface UseChatResult {
   setActiveChannelId: (channelId: string) => void;
   activeChannel: Channel | undefined;
   messages: Message[];
+  isLoading: boolean;
+  error: Error | null;
   members: Member[];
   connectionStatus: ChatConnectionStatus;
   sendMessage: () => void;
@@ -222,7 +225,7 @@ function mapBackendMessages(
       id: message.id,
       clientMessageId: message.id,
       serverMessageId: message.id,
-      channelId: message.group_id ?? message.event_id ?? channelId,
+      channelId: message.event_id ?? message.group_id ?? channelId,
       userId: message.user_id,
       username:
         message.user_id === currentUser?.id
@@ -248,6 +251,10 @@ function createDefaultChatTransport(accessToken?: string) {
 
   if (appConfig.chatTransportMode === "http") {
     return createHttpChatTransport();
+  }
+
+  if (appConfig.chatTransportMode === "websocket") {
+    return createWebSocketChatTransport(appConfig.apiUrl, accessToken);
   }
 
   return createSocketChatTransport({
@@ -357,7 +364,7 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
     initialData:
       usesSeedData && activeChannelId
         ? mockMessages.filter((message) => message.channelId === activeChannelId)
-        : [],
+        : undefined,
     staleTime: 15_000,
   });
 
@@ -738,12 +745,21 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
       .then(({ clientMessageId: acknowledgedClientId, message: sentMessage }) => {
         queryClient.setQueryData<Message[]>(
           orbitQueryKeys.chat.messages(activeChannel.id),
-          (currentMessages = []) =>
-            reconcileMessage(currentMessages, acknowledgedClientId, () => ({
+          (currentMessages = []) => {
+            const reconciled = reconcileMessage(currentMessages, acknowledgedClientId, () => ({
               ...withMentionStateForIdentity(sentMessage, user),
               status: "sent",
               canRetry: false,
-            })),
+            }));
+            const seenServerIds = new Set<string>();
+            return reconciled.filter((message) => {
+              const id = message.serverMessageId;
+              if (!id) return true;
+              if (seenServerIds.has(id)) return false;
+              seenServerIds.add(id);
+              return true;
+            });
+          },
         );
       })
       .catch(() => {
@@ -804,6 +820,8 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
     setActiveChannelId: handleSetActiveChannelId,
     activeChannel,
     messages,
+    isLoading: messagesQuery.isLoading,
+    error: messagesQuery.error,
     members,
     connectionStatus,
     sendMessage,

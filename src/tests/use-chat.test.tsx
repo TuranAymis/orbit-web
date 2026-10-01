@@ -197,6 +197,28 @@ describe("useChat realtime orchestration", () => {
     ).toBe(true);
   });
 
+  it("reconciles a broadcast that arrives before the send acknowledgment", async () => {
+    const harness = createTestTransportHarness();
+    const { Wrapper, queryClient } = createWrapper();
+    const { result } = renderHook(() => useChat({ transport: harness.transport }), { wrapper: Wrapper });
+    await act(async () => { await Promise.resolve(); });
+    act(() => {
+      result.current.setDraft("Yarışan mesaj");
+    });
+    act(() => result.current.sendMessage());
+    const optimistic = queryClient.getQueryData<Message[]>(orbitQueryKeys.chat.messages("channel_general"))
+      ?.find((message) => message.content === "Yarışan mesaj");
+    expect(optimistic).toBeDefined();
+    act(() => harness.emitMessage({
+      ...optimistic!, id: `srv_${optimistic!.clientMessageId}`,
+      serverMessageId: `srv_${optimistic!.clientMessageId}`,
+      clientMessageId: `srv_${optimistic!.clientMessageId}`, status: "sent",
+    }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+    expect(queryClient.getQueryData<Message[]>(orbitQueryKeys.chat.messages("channel_general"))
+      ?.filter((message) => message.content === "Yarışan mesaj")).toHaveLength(1);
+  });
+
   it("appends incoming realtime messages once and prevents duplicates", async () => {
     const harness = createTestTransportHarness();
     const { Wrapper, queryClient } = createWrapper();

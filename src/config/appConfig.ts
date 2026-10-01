@@ -1,4 +1,4 @@
-export type ChatTransportMode = "mock" | "socket" | "http";
+export type ChatTransportMode = "mock" | "websocket" | "socket" | "http";
 
 export interface AppConfig {
   apiUrl: string;
@@ -19,7 +19,7 @@ export interface AppConfig {
 }
 
 const defaultTransportMode: ChatTransportMode =
-  import.meta.env.MODE === "test" ? "mock" : "socket";
+  import.meta.env.MODE === "test" ? "mock" : "websocket";
 
 const apiUrl = import.meta.env.VITE_ORBIT_API_URL ?? "http://localhost:8000";
 const socketUrl = import.meta.env.VITE_ORBIT_SOCKET_URL ?? "http://localhost:8000";
