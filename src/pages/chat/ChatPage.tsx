@@ -22,6 +22,8 @@ export function ChatPage() {
     setActiveChannelId,
     activeChannel,
     messages,
+    isLoading,
+    error,
     members,
     connectionStatus,
     sendMessage,
@@ -48,6 +50,9 @@ export function ChatPage() {
       subtitle="Three-column Orbit chat layout driven by the existing conversation and send-message logic."
     >
       <h2 className="sr-only">Orbit Workspace Chat</h2>
+      {isLoading && <p>Mesajlar yükleniyor…</p>}
+      {error && <p role="alert">Mesajlar yüklenemedi.</p>}
+      {connectionStatus === "reconnecting" && <p role="status">Sohbet yeniden bağlanıyor…</p>}
       <div className="grid min-h-[820px] gap-0 overflow-hidden rounded-[30px] border border-white/8 bg-[#111117] xl:grid-cols-[380px_minmax(0,1fr)_280px]">
         <aside className="border-r border-white/8 bg-[#15151b] p-6">
           <div className="space-y-6">

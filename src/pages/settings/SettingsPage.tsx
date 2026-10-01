@@ -1,3 +1,4 @@
+import { PushSettings } from "@/features/notifications/push/PushSettings";
 import { useSettings } from "@/features/settings/get-settings/model/useSettings";
 import { useUpdateSettings } from "@/features/settings/update-settings/model/useUpdateSettings";
 import { useMutationFeedback } from "@/shared/lib/mutations/useMutationFeedback";
@@ -23,6 +24,7 @@ export function SettingsPage() {
       }
     >
       <div className="space-y-6">
+        <PushSettings />
         {message ? (
           <div className="rounded-2xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-foreground">
             <div className="flex items-center justify-between gap-4">

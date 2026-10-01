@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { NearbyEvents } from "@/features/discover/nearby/NearbyEvents";
 import { Link } from "react-router-dom";
 import { LayoutGrid, List, MessageSquareText, RefreshCcw } from "lucide-react";
 import { useDiscoverFeed } from "@/features/discover/get-discover-feed/model/useDiscoverFeed";
@@ -153,6 +154,7 @@ export function DiscoverPage() {
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
+          <NearbyEvents />
           <h2 className="sr-only">Discover Communities</h2>
           {message ? (
             <div className="rounded-[22px] border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-foreground">
