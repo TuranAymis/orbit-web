@@ -45,7 +45,7 @@ export function NearbyEvents() {
   return <section className="space-y-3 rounded-2xl border border-white/10 p-5" aria-label="Yakındaki etkinlikler">
     <h2 className="text-xl font-semibold">Yakındaki etkinlikler</h2>
     <label className="block text-sm">Kategori
-      <input aria-label="Kategori" value={category} onChange={(event) => setCategory(event.target.value)} className="ml-2 rounded bg-black/30 p-2" />
+      <input aria-label="Kategori" value={category} onChange={(event) => setCategory(event.target.value)} className="ml-2 min-h-10 rounded bg-black/30 p-2" />
     </label>
     {supported && <Button onClick={requestLocation}>Konumumu kullan</Button>}
     {state === "loading" && <p>Yakındaki etkinlikler yükleniyor…</p>}

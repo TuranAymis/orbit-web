@@ -34,3 +34,76 @@ jobs:
 
       - name: Run tests
         run: npm run test
+
+  e2e:
+    name: Browser E2E
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: pw
+          POSTGRES_DB: orbit_t
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d orbit_t"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Check out web repository
+        uses: actions/checkout@v4
+
+      - name: Check out backend repository
+        uses: actions/checkout@v4
+        with:
+          repository: TuranAymis/orbit-backend
+          path: orbit-backend
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        working-directory: orbit-backend
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+
+      - name: Prepare E2E database
+        working-directory: orbit-backend
+        run: ./scripts/e2e_db.sh
+
+      - name: Start backend
+        working-directory: orbit-backend
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:pw@localhost:55432/orbit_t
+          BACKEND_CORS_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
+        run: .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/orbit-e2e-api.log 2>&1 &
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser E2E
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore

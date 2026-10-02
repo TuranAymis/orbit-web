@@ -65,3 +65,7 @@ Thumbs.db
 tailwind.config.js
 tailwind.config.js.map
 tailwind.config.d.ts
+
+# Playwright
+test-results/
+playwright-report/
