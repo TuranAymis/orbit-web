@@ -43,7 +43,7 @@ export function PushSettings() {
     {permission === "denied" && <p>Tarayıcı bildirim izni reddedildi.</p>}
     {!supported && <p>Bu tarayıcı push bildirimlerini desteklemiyor.</p>}
     {permission === "granted" && <p>Tarayıcı bildirim izni açık.</p>}
-    {(Object.keys(labels) as Category[]).map((category) => <label key={category} className="flex gap-2">
+    {(Object.keys(labels) as Category[]).map((category) => <label key={category} className="flex min-h-11 items-center gap-2">
       <input type="checkbox" checked={preferences[category]} onChange={() => void toggle(category)} />{labels[category]}
     </label>)}
     {message && <p role="status">{message}</p>}

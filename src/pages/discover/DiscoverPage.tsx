@@ -340,7 +340,7 @@ export function DiscoverPage() {
                 Unlock unrestricted access to premium group spaces, high-signal chat,
                 and members-only events.
               </p>
-              <Link to="/membership">
+              <Link to="/membership" className="block">
                 <Button className="w-full justify-center uppercase tracking-[0.18em]">
                   Go Premium
                 </Button>

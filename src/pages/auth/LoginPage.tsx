@@ -113,7 +113,7 @@ export function LoginPage() {
                     <span className="text-xs uppercase tracking-[0.26em] text-muted-foreground">
                       Access Key
                     </span>
-                    <Link className="text-xs font-semibold uppercase tracking-[0.2em] text-primary" to="/verify-account">
+                    <Link className="inline-flex min-h-10 items-center text-xs font-semibold uppercase tracking-[0.2em] text-primary" to="/verify-account">
                       Forgot?
                     </Link>
                   </div>
@@ -179,7 +179,7 @@ export function LoginPage() {
 
           <div className="mt-8 text-center text-lg text-muted-foreground">
             New to the system?{" "}
-            <Link className="font-semibold text-primary" to="/register">
+            <Link className="inline-flex min-h-10 items-center font-semibold text-primary" to="/register">
               Create Account
             </Link>
           </div>

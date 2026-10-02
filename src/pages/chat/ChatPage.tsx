@@ -220,10 +220,10 @@ export function ChatPage() {
                 sendMessage();
               }}
             >
-              <Button variant="ghost" size="icon" aria-label="Add">
+              <Button variant="ghost" size="icon" aria-label="Add" className="h-11 w-11 shrink-0">
                 <Plus className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon" aria-label="Emoji">
+              <Button variant="ghost" size="icon" aria-label="Emoji" className="h-11 w-11 shrink-0">
                 <Smile className="h-5 w-5" />
               </Button>
               <Input
@@ -233,7 +233,7 @@ export function ChatPage() {
                 aria-label={`Message ${activeChannel?.kind === "channel" ? `#${activeChannel.name}` : activeChannel?.name ?? "conversation"}`}
                 className="border-transparent bg-transparent px-1 focus-visible:border-transparent focus-visible:ring-0"
               />
-              <Button variant="ghost" size="icon" aria-label="Voice">
+              <Button variant="ghost" size="icon" aria-label="Voice" className="h-11 w-11 shrink-0">
                 <Mic className="h-5 w-5" />
               </Button>
               <Button type="submit" aria-label="Send message" disabled={draft.trim().length === 0}>
