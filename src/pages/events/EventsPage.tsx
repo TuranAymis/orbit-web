@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { CalendarDays, MapPin, Plus } from "lucide-react";
+import { CalendarDays, MapPin } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
 import { canCreateEvent } from "@/shared/lib/access/permissions";
 import { useEvents } from "@/features/events/list-events/model/useEvents";
@@ -122,7 +122,7 @@ export function EventsPage() {
             errorDescription="Try refreshing the events feed to re-request the backend list."
           >
             <div className="space-y-5">
-              {data.map((event, index) => {
+              {data.map((event) => {
                 const start = new Date(event.startsAt);
 
                 return (
@@ -188,29 +188,18 @@ export function EventsPage() {
                                   : "RSVP Now"}
                             </Button>
 
-                            <div className="space-y-3">
-                              <div className="inline-flex -space-x-2">
-                                {Array.from({ length: 3 }).map((_, avatarIndex) => (
-                                  <span
-                                    key={avatarIndex}
-                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[#15151b] bg-white/10 text-xs text-foreground"
-                                  >
-                                    {avatarIndex + 1}
-                                  </span>
-                                ))}
-                                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#15151b] bg-white/10 text-xs text-foreground">
-                                  +{Math.max(0, event.attendeeCount - 3)}
-                                </span>
-                              </div>
-                              {index === 1 ? (
-                                <button
-                                  type="button"
-                                  aria-label="Create event shortcut"
-                                  className="flex h-16 w-16 items-center justify-center self-end rounded-full bg-primary text-primary-foreground shadow-[0_14px_40px_rgba(182,100,255,0.26)]"
+                            <div className="inline-flex -space-x-2">
+                              {Array.from({ length: 3 }).map((_, avatarIndex) => (
+                                <span
+                                  key={avatarIndex}
+                                  className="flex h-8 w-8 items-center justify-center rounded-full border border-[#15151b] bg-white/10 text-xs text-foreground"
                                 >
-                                  <Plus className="h-6 w-6" />
-                                </button>
-                              ) : null}
+                                  {avatarIndex + 1}
+                                </span>
+                              ))}
+                              <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#15151b] bg-white/10 text-xs text-foreground">
+                                +{Math.max(0, event.attendeeCount - 3)}
+                              </span>
                             </div>
                           </div>
                         </div>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { NearbyEvents } from "@/features/discover/nearby/NearbyEvents";
 import { Link } from "react-router-dom";
-import { LayoutGrid, List, MessageSquareText, RefreshCcw } from "lucide-react";
+import { RefreshCcw } from "lucide-react";
 import { useDiscoverFeed } from "@/features/discover/get-discover-feed/model/useDiscoverFeed";
 import {
   getDiscoverSection,
@@ -189,25 +189,15 @@ export function DiscoverPage() {
             </div>
           </Card>
 
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              items={[
-                { value: "for-you", label: "For You" },
-                { value: "trending", label: "Trending" },
-                { value: "latest", label: "Latest", ariaLabel: "Events" },
-              ]}
-            />
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Button variant="ghost" size="icon" aria-label="Grid view">
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" aria-label="List view">
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            items={[
+              { value: "for-you", label: "For You" },
+              { value: "trending", label: "Trending" },
+              { value: "latest", label: "Latest", ariaLabel: "Events" },
+            ]}
+          />
 
           {error ? (
             <ErrorState
@@ -326,10 +316,6 @@ export function DiscoverPage() {
                   </p>
                 </div>
               </div>
-              <Button variant="secondary" className="w-full justify-between">
-                Join the void...
-                <MessageSquareText className="h-4 w-4" />
-              </Button>
             </CardContent>
           </Card>
 

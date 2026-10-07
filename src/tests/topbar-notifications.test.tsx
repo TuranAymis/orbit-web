@@ -7,7 +7,7 @@ import type { AuthSession } from "@/features/auth/types";
 import * as markNotificationReadModule from "@/features/notifications/mark-notification-read/model/useMarkNotificationRead";
 import * as notificationsModule from "@/features/notifications/list-notifications/model/useNotifications";
 import * as unreadModule from "@/features/notifications/get-unread-count/model/useUnreadNotifications";
-import { Topbar } from "@/widgets/app-shell/Topbar";
+import { AppTopbar } from "@/widgets/orbit/AppTopbar";
 
 const demoSession: AuthSession = {
   isAuthenticated: true,
@@ -28,7 +28,7 @@ function renderTopbar() {
   return render(
     <AppProviders initialSession={demoSession}>
       <MemoryRouter>
-        <Topbar onOpenSidebar={() => undefined} />
+        <AppTopbar onOpenSidebar={() => undefined} />
       </MemoryRouter>
     </AppProviders>,
   );

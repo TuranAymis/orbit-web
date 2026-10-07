@@ -13,15 +13,12 @@ import { Input } from "@/shared/ui/input";
 import { PageContainer } from "@/shared/ui/page-container";
 import { GroupCard } from "@/entities/group/ui/GroupCard";
 
-const filters = ["All Pulse", "Neuro-Art", "Synth-Noir", "Hardware"] as const;
-
 export function GroupsPage() {
   const { user } = useAuth();
   const { data, isLoading, error, isEmpty, refetch } = useGroups();
   const joinGroupMutation = useJoinGroup();
   const { message, clearMessage } = useMutationFeedback(joinGroupMutation.error);
   const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]>("All Pulse");
 
   const filteredGroups = useMemo(
     () =>
@@ -65,28 +62,14 @@ export function GroupsPage() {
             </div>
           ) : null}
 
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search groups"
-                className="pl-11"
-              />
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {filters.map((filter) => (
-                <Button
-                  key={filter}
-                  variant={activeFilter === filter ? "secondary" : "ghost"}
-                  className="min-w-[132px] justify-center"
-                  onClick={() => setActiveFilter(filter)}
-                >
-                  {filter}
-                </Button>
-              ))}
-            </div>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search groups"
+              className="pl-11"
+            />
           </div>
 
           <AsyncState
