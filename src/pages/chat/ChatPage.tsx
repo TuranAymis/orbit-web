@@ -157,6 +157,7 @@ export function ChatPage() {
             <Button
               variant="ghost"
               size="icon"
+              className="shrink-0"
               aria-label={isActiveChannelMuted ? "Unmute conversation" : "Mute conversation"}
               onClick={() => activeChannelId && toggleMuteChannel(activeChannelId)}
             >
