@@ -162,18 +162,6 @@ export function LoginPage() {
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </form>
-
-              <div className="space-y-5">
-                <div className="flex items-center gap-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  <div className="h-px flex-1 bg-white/10" />
-                  Third party auth
-                  <div className="h-px flex-1 bg-white/10" />
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Button variant="secondary" className="justify-center">Identity</Button>
-                  <Button variant="secondary" className="justify-center">Biometrics</Button>
-                </div>
-              </div>
             </CardContent>
           </Card>
 

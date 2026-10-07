@@ -1,26 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { Shield, Bell, UserCircle2, CreditCard, Paintbrush2, ExternalLink } from "lucide-react";
+import { Shield, ExternalLink } from "lucide-react";
 import type { UserSettings } from "@/entities/user/model/types";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Switch } from "@/shared/ui/switch";
 import { Textarea } from "@/shared/ui/textarea";
-import { cn } from "@/lib/utils";
 
 interface SettingsFormProps {
   settings: UserSettings;
   onSave: (nextSettings: UserSettings) => Promise<void>;
   isSaving?: boolean;
 }
-
-const sections = [
-  { id: "account", label: "Account", icon: UserCircle2 },
-  { id: "privacy", label: "Privacy", icon: Shield },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "billing", label: "Billing", icon: CreditCard },
-  { id: "appearance", label: "Appearance", icon: Paintbrush2 },
-] as const;
 
 export function SettingsForm({
   settings,
@@ -41,41 +32,7 @@ export function SettingsForm({
   );
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[330px_minmax(0,1fr)_300px]">
-      <aside className="rounded-[28px] border border-white/8 bg-[#131319] py-5">
-        <div className="px-7 pb-4">
-          <h2 className="text-5xl font-bold tracking-tight text-foreground">Settings</h2>
-        </div>
-        <nav className="space-y-1">
-          {sections.map((section) => {
-            const Icon = section.icon;
-
-            return (
-              <button
-                key={section.id}
-                type="button"
-                className={cn(
-                  "flex w-full items-center gap-4 border-l-4 border-transparent px-7 py-5 text-left transition",
-                  section.id === "account"
-                    ? "border-primary bg-white/[0.04] text-foreground"
-                    : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground",
-                )}
-              >
-                <Icon className={cn("h-5 w-5", section.id === "account" && "text-primary")} />
-                <span className="text-sm font-semibold uppercase tracking-[0.18em]">
-                  {section.label}
-                </span>
-              </button>
-            );
-          })}
-        </nav>
-        <div className="px-5 pt-8">
-          <Button className="w-full justify-center uppercase tracking-[0.18em]">
-            Upgrade to Pro
-          </Button>
-        </div>
-      </aside>
-
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
       <div className="space-y-6">
         <div>
           <h1 className="text-6xl font-bold tracking-tight text-foreground">Account Settings</h1>
@@ -88,15 +45,8 @@ export function SettingsForm({
         <Card className="border-white/8 bg-[#15151b]">
           <CardContent className="space-y-6 p-7">
             <div className="flex items-center gap-5">
-              <div className="relative flex h-32 w-32 items-center justify-center rounded-[28px] border border-primary/20 bg-[#556172]">
+              <div className="flex h-32 w-32 items-center justify-center rounded-[28px] border border-primary/20 bg-[#556172]">
                 <span className="text-xl font-semibold text-white">PROFILE</span>
-                <button
-                  type="button"
-                  aria-label="Edit avatar"
-                  className="absolute -bottom-2 -right-2 flex h-12 w-12 items-center justify-center rounded-[16px] bg-primary text-primary-foreground"
-                >
-                  <Paintbrush2 className="h-5 w-5" />
-                </button>
               </div>
               <div>
                 <h2 className="text-4xl font-bold tracking-tight text-foreground">Public Profile</h2>
@@ -293,43 +243,6 @@ export function SettingsForm({
       </div>
 
       <div className="space-y-6">
-        <Card className="border-primary/20 bg-[linear-gradient(180deg,rgba(182,100,255,0.08),rgba(255,255,255,0.02))]">
-          <CardContent className="space-y-5 p-6">
-            <p className="text-xs uppercase tracking-[0.3em] text-primary">Current Plan</p>
-            <h3 className="text-5xl font-bold tracking-tight text-foreground">Orbit Free</h3>
-            <p className="text-lg leading-8 text-muted-foreground">
-              Basic synthetic tools for hobbyists.
-            </p>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm text-foreground">
-                <span>Data Usage</span>
-                <span>1.2GB / 5GB</span>
-              </div>
-              <div className="h-2 rounded-full bg-black">
-                <div className="h-full w-1/3 rounded-full bg-primary" />
-              </div>
-            </div>
-            <Button variant="secondary" className="w-full justify-center">
-              Manage Subscription
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="border-rose-500/30 bg-black">
-          <CardContent className="space-y-5 p-6">
-            <h3 className="text-4xl font-bold tracking-tight text-rose-400">Danger Zone</h3>
-            <p className="text-lg leading-8 text-muted-foreground">
-              Permanently delete your account and all associated data. This action is irreversible.
-            </p>
-            <Button
-              variant="outline"
-              className="w-full justify-center border-rose-500/30 text-rose-300 hover:bg-rose-500/10"
-            >
-              Deactivate Account
-            </Button>
-          </CardContent>
-        </Card>
-
         <Card className="border-white/8 bg-[#15151b]">
           <CardContent className="space-y-4 p-6">
             <div className="flex items-center justify-between">

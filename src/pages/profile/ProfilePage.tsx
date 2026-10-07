@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pencil } from "lucide-react";
 import { useProfile } from "@/features/profile/get-profile/model/useProfile";
 import { useUpdateProfile } from "@/features/profile/update-profile/model/useUpdateProfile";
 import { useMutationFeedback } from "@/shared/lib/mutations/useMutationFeedback";
@@ -84,44 +83,37 @@ export function ProfilePage() {
               <Card className="overflow-hidden border-white/8 bg-[#14141a]">
                 <div className="relative min-h-[260px]">
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(57,108,142,0.35),rgba(14,14,20,0.96)),linear-gradient(90deg,rgba(24,24,35,0.6),rgba(182,100,255,0.08))]" />
-                  <div className="relative flex flex-col gap-8 p-8 md:flex-row md:items-end md:justify-between">
-                    <div className="flex flex-col gap-6 md:flex-row md:items-end">
-                      <div className="relative">
-                        <Avatar className="h-40 w-40 rounded-[34px] border-[3px] border-black">
-                          <AvatarFallback className="text-4xl">
-                            {data.name.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <Badge className="absolute -bottom-2 left-1/2 -translate-x-1/2">Elite</Badge>
+                  <div className="relative flex flex-col gap-6 p-8 md:flex-row md:items-end">
+                    <div className="relative">
+                      <Avatar className="h-40 w-40 rounded-[34px] border-[3px] border-black">
+                        <AvatarFallback className="text-4xl">
+                          {data.name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <Badge className="absolute -bottom-2 left-1/2 -translate-x-1/2">Elite</Badge>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <h1 className="text-6xl font-bold tracking-tight text-foreground">
+                          {data.name}
+                        </h1>
+                        <p className="mt-2 text-2xl text-muted-foreground">
+                          {data.bio || "Synthetic interface architect"}
+                        </p>
                       </div>
-                      <div className="space-y-4">
-                        <div>
-                          <h1 className="text-6xl font-bold tracking-tight text-foreground">
-                            {data.name}
-                          </h1>
-                          <p className="mt-2 text-2xl text-muted-foreground">
-                            {data.bio || "Synthetic interface architect"}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-8">
-                          {metrics.map((metric) => (
-                            <div key={metric.label}>
-                              <p className="text-4xl font-bold tracking-tight text-primary">
-                                {metric.value}
-                              </p>
-                              <p className="text-xs uppercase tracking-[0.26em] text-muted-foreground">
-                                {metric.label}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
+                      <div className="flex flex-wrap gap-8">
+                        {metrics.map((metric) => (
+                          <div key={metric.label}>
+                            <p className="text-4xl font-bold tracking-tight text-primary">
+                              {metric.value}
+                            </p>
+                            <p className="text-xs uppercase tracking-[0.26em] text-muted-foreground">
+                              {metric.label}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     </div>
-
-                    <Button variant="secondary">
-                      <Pencil className="h-4 w-4" />
-                      Edit Profile
-                    </Button>
                   </div>
                 </div>
               </Card>

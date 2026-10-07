@@ -1,4 +1,4 @@
-import { BellOff, BellRing, Phone, Video, MoreVertical, Plus, Smile, Mic, Search } from "lucide-react";
+import { BellOff, BellRing, Search } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
 import { useChat } from "@/features/chat/model/useChat";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
@@ -154,29 +154,18 @@ export function ChatPage() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" aria-label="Call">
-                <Phone className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" aria-label="Video">
-                <Video className="h-5 w-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={isActiveChannelMuted ? "Unmute conversation" : "Mute conversation"}
-                onClick={() => activeChannelId && toggleMuteChannel(activeChannelId)}
-              >
-                {isActiveChannelMuted ? (
-                  <BellOff className="h-5 w-5 text-amber-200" />
-                ) : (
-                  <BellRing className="h-5 w-5" />
-                )}
-              </Button>
-              <Button variant="ghost" size="icon" aria-label="More">
-                <MoreVertical className="h-5 w-5" />
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={isActiveChannelMuted ? "Unmute conversation" : "Mute conversation"}
+              onClick={() => activeChannelId && toggleMuteChannel(activeChannelId)}
+            >
+              {isActiveChannelMuted ? (
+                <BellOff className="h-5 w-5 text-amber-200" />
+              ) : (
+                <BellRing className="h-5 w-5" />
+              )}
+            </Button>
           </div>
 
           <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
@@ -220,12 +209,6 @@ export function ChatPage() {
                 sendMessage();
               }}
             >
-              <Button variant="ghost" size="icon" aria-label="Add" className="h-11 w-11 shrink-0">
-                <Plus className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" aria-label="Emoji" className="h-11 w-11 shrink-0">
-                <Smile className="h-5 w-5" />
-              </Button>
               <Input
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
@@ -233,9 +216,6 @@ export function ChatPage() {
                 aria-label={`Message ${activeChannel?.kind === "channel" ? `#${activeChannel.name}` : activeChannel?.name ?? "conversation"}`}
                 className="border-transparent bg-transparent px-1 focus-visible:border-transparent focus-visible:ring-0"
               />
-              <Button variant="ghost" size="icon" aria-label="Voice" className="h-11 w-11 shrink-0">
-                <Mic className="h-5 w-5" />
-              </Button>
               <Button type="submit" aria-label="Send message" disabled={draft.trim().length === 0}>
                 Send
               </Button>
@@ -291,13 +271,6 @@ export function ChatPage() {
                   </div>
                 ))}
               </div>
-            </div>
-
-            <div className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Block Contact</p>
-              <Button variant="outline" className="w-full justify-center">
-                Manage Safety
-              </Button>
             </div>
           </div>
         </aside>

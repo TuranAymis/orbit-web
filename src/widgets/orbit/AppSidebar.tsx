@@ -33,12 +33,8 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
         <SidebarNav onNavigate={onNavigate} />
       </div>
 
-      <div className="border-t border-white/6 px-7 py-6">
-        <Button className="mb-5 w-full justify-center uppercase tracking-[0.18em]">
-          Upgrade to Pro
-        </Button>
-
-        {user ? (
+      {user ? (
+        <div className="border-t border-white/6 px-7 py-6">
           <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
             <div className="flex items-center gap-3">
               <Avatar className="h-12 w-12 rounded-2xl">
@@ -60,8 +56,8 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
               Log out
             </Button>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </aside>
   );
 }
