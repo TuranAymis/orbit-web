@@ -20,6 +20,7 @@ import { createMockChatTransport } from "@/features/chat/transport/mockChatTrans
 import { withMentionStateForIdentity } from "@/features/chat/model/mentions";
 import { createSocketChatTransport } from "@/features/chat/transport/socketChatTransport";
 import { createWebSocketChatTransport } from "@/features/chat/transport/webSocketChatTransport";
+import { getGroupChatRoomState, muteGroupChatRoom, unmuteGroupChatRoom } from "@/features/chat/api/chatRoomState";
 import { listGroups } from "@/features/groups/list-groups/api/listGroups";
 import { httpClient } from "@/shared/lib/http/httpClient";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
@@ -139,6 +140,7 @@ interface UseChatResult {
   messages: Message[];
   isLoading: boolean;
   error: Error | null;
+  muteError: Error | null;
   members: Member[];
   connectionStatus: ChatConnectionStatus;
   sendMessage: () => void;
@@ -278,10 +280,14 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
   const queryClient = useQueryClient();
   const isExternalTransport = Boolean(options.transport);
   const usesSeedData = isExternalTransport || appConfig.chatTransportMode === "mock";
-  const [activeChannelId, setActiveChannelId] = useState<string>(
+  const [selectedChannelId, setActiveChannelId] = useState<string>(
     options.preferredChannelId ?? (usesSeedData ? "channel_general" : ""),
   );
+  const previousPreferredChannelIdRef = useRef(options.preferredChannelId);
+  const pendingPreferredChannelIdRef = useRef<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [muteError, setMuteError] = useState<Error | null>(null);
+  const pendingMuteIds = useRef(new Set<string>());
   const [connectionStatus, setConnectionStatus] =
     useState<ChatConnectionStatus>("disconnected");
   const [typingUsersByChannel, setTypingUsersByChannel] = useState<
@@ -291,13 +297,12 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
     () => options.transport ?? createDefaultChatTransport(session?.accessToken),
     [options.transport, session?.accessToken],
   );
-  const activeChannelIdRef = useRef(activeChannelId);
+  const activeChannelIdRef = useRef("");
   const previousChannelIdRef = useRef<string | null>(null);
   const typingTimeoutsRef = useRef<Record<string, Record<string, number>>>({});
   const outgoingTypingTimeoutRef = useRef<number | null>(null);
   const isTypingRef = useRef(false);
   const connectionStatusRef = useRef<ChatConnectionStatus>("disconnected");
-  activeChannelIdRef.current = activeChannelId;
   const chatPreferencesQuery = useQuery({
     queryKey: orbitQueryKeys.chat.preferences,
     queryFn: async () => readChatPreferences(),
@@ -314,10 +319,15 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
       }
 
       const groupList = await listGroups();
-      return groupList.map<Channel>((group) => ({
+      const joinedGroups = groupList.filter((group) => group.isJoined);
+      const roomStates = await Promise.allSettled(
+        joinedGroups.map((group) => getGroupChatRoomState(group.id)),
+      );
+      return joinedGroups.map((group, index): Channel => ({
         id: group.id,
         name: group.name.toLowerCase().replace(/\s+/g, "-"),
         kind: "channel",
+        isMuted: roomStates[index].status === "fulfilled" ? roomStates[index].value.isMuted : false,
       }));
     },
     // No initialData against the real backend: an empty initial value plus staleTime would stop
@@ -330,11 +340,30 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
     () =>
       (conversationsQuery.data ?? []).map((channel) => ({
         ...channel,
-        isMuted: chatPreferences.mutedChannelIds.includes(channel.id),
         lastReadAt: chatPreferences.lastReadAtByChannel[channel.id],
       })),
-    [chatPreferences.lastReadAtByChannel, chatPreferences.mutedChannelIds, conversationsQuery.data],
+    [chatPreferences.lastReadAtByChannel, conversationsQuery.data],
   );
+
+  useEffect(() => {
+    if (previousPreferredChannelIdRef.current !== options.preferredChannelId) {
+      previousPreferredChannelIdRef.current = options.preferredChannelId;
+      pendingPreferredChannelIdRef.current = options.preferredChannelId ?? null;
+    }
+
+    const preferredChannelId = pendingPreferredChannelIdRef.current;
+    if (preferredChannelId && channels.some((channel) => channel.id === preferredChannelId)) {
+      pendingPreferredChannelIdRef.current = null;
+      setActiveChannelId(preferredChannelId);
+    }
+  }, [channels, options.preferredChannelId]);
+
+  // Resolve the selection against the member channels before starting a history request.
+  // This also handles a removed membership and an invalid groupId in the URL.
+  const activeChannelId = channels.some((channel) => channel.id === selectedChannelId)
+    ? selectedChannelId
+    : channels[0]?.id ?? "";
+  activeChannelIdRef.current = activeChannelId;
 
   const activeChannel = useMemo(
     () => channels.find((channel) => channel.id === activeChannelId),
@@ -369,24 +398,6 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
   });
 
   const messages = messagesQuery.data ?? [];
-
-  useEffect(() => {
-    if (
-      options.preferredChannelId &&
-      channels.some((channel) => channel.id === options.preferredChannelId)
-    ) {
-      setActiveChannelId(options.preferredChannelId);
-      return;
-    }
-
-    setActiveChannelId((currentChannelId) => {
-      if (currentChannelId && channels.some((channel) => channel.id === currentChannelId)) {
-        return currentChannelId;
-      }
-
-      return channels[0]?.id ?? "";
-    });
-  }, [channels, options.preferredChannelId]);
 
   useEffect(() => {
     syncChatUnreadCount(queryClient, channels);
@@ -776,25 +787,16 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
   }
 
   function handleSetActiveChannelId(channelId: string) {
+    pendingPreferredChannelIdRef.current = null;
     setActiveChannelId(channelId);
   }
 
   function toggleMuteChannel(channelId: string) {
-    const nextPreferences = updateChatPreferences((currentPreferences) => {
-      const isMuted = currentPreferences.mutedChannelIds.includes(channelId);
-
-      return {
-        ...currentPreferences,
-        mutedChannelIds: isMuted
-          ? currentPreferences.mutedChannelIds.filter((id) => id !== channelId)
-          : [...currentPreferences.mutedChannelIds, channelId],
-      };
-    });
-
-    queryClient.setQueryData<ChatPreferences>(
-      orbitQueryKeys.chat.preferences,
-      nextPreferences,
-    );
+    if (pendingMuteIds.current.has(channelId)) return;
+    const previous = queryClient.getQueryData<Channel[]>(orbitQueryKeys.chat.conversations)
+      ?.find((channel) => channel.id === channelId)?.isMuted ?? false;
+    const next = !previous;
+    setMuteError(null);
     queryClient.setQueryData<Channel[]>(
       orbitQueryKeys.chat.conversations,
       (currentChannels = []) =>
@@ -802,11 +804,31 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
           channel.id === channelId
             ? {
                 ...channel,
-                isMuted: nextPreferences.mutedChannelIds.includes(channelId),
+                isMuted: next,
               }
             : channel,
         ),
     );
+    if (usesSeedData) return;
+
+    pendingMuteIds.current.add(channelId);
+    void (next ? muteGroupChatRoom(channelId) : unmuteGroupChatRoom(channelId))
+      .then((state) => {
+        queryClient.setQueryData<Channel[]>(orbitQueryKeys.chat.conversations, (current = []) =>
+          current.map((channel) => channel.id === channelId
+            ? { ...channel, isMuted: state.isMuted }
+            : channel),
+        );
+      })
+      .catch((error: unknown) => {
+        queryClient.setQueryData<Channel[]>(orbitQueryKeys.chat.conversations, (current = []) =>
+          current.map((channel) => channel.id === channelId
+            ? { ...channel, isMuted: previous }
+            : channel),
+        );
+        setMuteError(error instanceof Error ? error : new Error("Mute setting could not be saved."));
+      })
+      .finally(() => pendingMuteIds.current.delete(channelId));
   }
 
   const activeChannelUnreadCount =
@@ -820,8 +842,9 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
     setActiveChannelId: handleSetActiveChannelId,
     activeChannel,
     messages,
-    isLoading: messagesQuery.isLoading,
-    error: messagesQuery.error,
+    isLoading: conversationsQuery.isLoading || (Boolean(activeChannelId) && messagesQuery.isLoading),
+    error: conversationsQuery.error ?? messagesQuery.error,
+    muteError,
     members,
     connectionStatus,
     sendMessage,

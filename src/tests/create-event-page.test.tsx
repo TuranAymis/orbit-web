@@ -81,6 +81,41 @@ describe("CreateEventPage", () => {
     expect(screen.queryByRole("button", { name: /create event/i })).not.toBeInTheDocument();
   });
 
+  it("requires moderators to enter from a group when no group is prefilled", () => {
+    vi.spyOn(createEventModule, "useCreateEvent").mockReturnValue({
+      mutateAsync: vi.fn(), isPending: false, error: null,
+    } as never);
+    renderCreateEventPage(createSession("moderator"), "/events/create");
+    expect(screen.getByText(/open a group you moderate/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^create event$/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps the group chooser for admins", () => {
+    vi.spyOn(createEventModule, "useCreateEvent").mockReturnValue({
+      mutateAsync: vi.fn(), isPending: false, error: null,
+    } as never);
+    renderCreateEventPage(createSession("admin"));
+    expect(screen.getByLabelText(/^group$/i)).toHaveValue("frontend-forge");
+  });
+
+  it("falls back to a selectable group when the URL group is invalid", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ id: "event_42" });
+    vi.spyOn(createEventModule, "useCreateEvent").mockReturnValue({
+      mutateAsync, isPending: false, error: null,
+    } as never);
+    const user = userEvent.setup();
+    renderCreateEventPage(createSession("admin"), "/events/create?groupId=missing");
+
+    expect(screen.getByLabelText(/^group$/i)).toHaveValue("frontend-forge");
+    await user.type(screen.getByLabelText(/event title/i), "Orbit Review");
+    await user.type(screen.getByLabelText(/location/i), "Orbit Live Room");
+    await user.click(screen.getByRole("button", { name: /^create event$/i }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ groupId: "frontend-forge" }),
+    ));
+  });
+
   it("submits through the create event hook and navigates on success", async () => {
     const mutateAsync = vi.fn().mockResolvedValue({ id: "event_42" });
     vi.spyOn(createEventModule, "useCreateEvent").mockReturnValue({
@@ -92,7 +127,7 @@ describe("CreateEventPage", () => {
 
     renderCreateEventPage(createSession("moderator"));
 
-    expect(screen.getByLabelText(/group/i)).toHaveValue("frontend-forge");
+    expect(screen.queryByLabelText(/^group$/i)).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/event title/i), "Orbit Review");
     await user.type(screen.getByLabelText(/location/i), "Orbit Live Room");

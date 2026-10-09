@@ -35,6 +35,25 @@ describe("notification mappers", () => {
     });
   });
 
+  it("maps the snake_case payload the real backend returns", () => {
+    const [notification] = mapNotificationsResponse([
+      {
+        id: "n1",
+        type: "group",
+        title: "Welcome",
+        message: "Hello",
+        created_at: "2026-10-01T10:00:00Z",
+        is_read: true,
+        related_entity_type: "group",
+        related_entity_id: "g1",
+      },
+    ]);
+
+    expect(notification.isRead).toBe(true);
+    expect(notification.createdAt).toBe("2026-10-01T10:00:00Z");
+    expect(notification.relatedEntityId).toBe("g1");
+  });
+
   it("maps unread count payloads safely", () => {
     expect(mapUnreadCountResponse({ unreadCount: 4 })).toBe(4);
     expect(mapUnreadCountResponse(2)).toBe(2);

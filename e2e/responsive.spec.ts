@@ -46,12 +46,6 @@ test("login, home, Discover, chat, and settings fit their viewport", async ({ pa
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
   });
-  // Known product bug (Trello card "ORBIT | Chat | Varsayılan kanal 403"): /chat preselects a channel whose
-  // history the account may not read, so GET /chats?group_id=... answers 403. Remove this filter once it is fixed.
-  const knownForbiddenChatHistory = new Set<string>();
-  page.on("response", (response) => {
-    if (response.status() === 403 && /\/chats\?group_id=/.test(response.url())) knownForbiddenChatHistory.add(response.url());
-  });
 
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Access Terminal" })).toBeVisible();
@@ -62,8 +56,5 @@ test("login, home, Discover, chat, and settings fit their viewport", async ({ pa
     await expect(page.getByLabel("Notifications", { exact: true })).toBeVisible();
     await assertLayout(page, isMobile);
   }
-  const unexpected = knownForbiddenChatHistory.size > 0
-    ? errors.filter((message) => !message.includes("403 (Forbidden)"))
-    : errors;
-  expect(unexpected, "Browser console or page errors").toEqual([]);
+  expect(errors, "Browser console or page errors").toEqual([]);
 });

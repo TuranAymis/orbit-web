@@ -114,6 +114,9 @@ export function useGroupDetail(groupId?: string): UseGroupDetailResult {
         queryClient.invalidateQueries({
           queryKey: orbitQueryKeys.discover.feed,
         }),
+        queryClient.invalidateQueries({
+          queryKey: orbitQueryKeys.chat.conversations,
+        }),
       ]);
     },
   });

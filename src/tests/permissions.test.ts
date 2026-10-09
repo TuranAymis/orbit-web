@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AuthUser } from "@/features/auth/types";
 import {
   canAssignModerators,
+  canAccessEventCreation,
   canCreateEvent,
   canCreateGroup,
   canDeleteEvent,
@@ -33,17 +34,18 @@ describe("permission helpers", () => {
     expect(canDeleteGroup(createUser("user"))).toBe(false);
   });
 
-  it("allows admins and moderators to create events", () => {
-    expect(canCreateEvent(createUser("admin"))).toBe(true);
-    expect(canCreateEvent(createUser("moderator"))).toBe(true);
-    expect(canCreateEvent(createUser("user"))).toBe(false);
-    expect(canCreateEvent(undefined)).toBe(false);
+  it("allows admins and moderators to open event creation", () => {
+    expect(canAccessEventCreation(createUser("admin"))).toBe(true);
+    expect(canAccessEventCreation(createUser("moderator"))).toBe(true);
+    expect(canAccessEventCreation(createUser("user"))).toBe(false);
+    expect(canAccessEventCreation(undefined)).toBe(false);
   });
 
-  it("allows admins and moderators to delete events", () => {
-    expect(canDeleteEvent(createUser("admin"))).toBe(true);
-    expect(canDeleteEvent(createUser("moderator"))).toBe(true);
-    expect(canDeleteEvent(createUser("user"))).toBe(false);
+  it("uses backend scope flags for event actions", () => {
+    expect(canCreateEvent({ canCreateEvents: true })).toBe(true);
+    expect(canCreateEvent({ canCreateEvents: false })).toBe(false);
+    expect(canDeleteEvent({ canManage: true })).toBe(true);
+    expect(canDeleteEvent({ canManage: false })).toBe(false);
   });
 
   it("allows only admins to assign moderators", () => {

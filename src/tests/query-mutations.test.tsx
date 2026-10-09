@@ -21,12 +21,14 @@ import * as upgradeMembershipApi from "@/features/membership/upgrade-membership/
 import { useGroupDetail } from "@/features/groups/get-group-detail/model/useGroupDetail";
 import * as groupDetailApi from "@/features/groups/get-group-detail/api/getGroupDetail";
 import * as joinGroupApi from "@/features/groups/join-group/api/joinGroup";
+import * as leaveGroupApi from "@/features/groups/leave-group/api/leaveGroup";
 import { readStoredSession, writeStoredSession } from "@/features/auth/auth-storage";
 import type { DiscoverFeed } from "@/features/discover/get-discover-feed/mappers/discoverMapper";
 import { createOrbitQueryClient } from "@/shared/lib/query/query-client";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 
 const groupDetail: GroupDetail = {
+  canCreateEvents: false,
   id: "frontend-forge",
   name: "Frontend Forge",
   description: "Design systems, accessibility, and UI architecture.",
@@ -47,6 +49,7 @@ const groupDetail: GroupDetail = {
 };
 
 const eventDetail: EventDetail = {
+  canManage: false,
   id: "design-systems-review",
   title: "Design Systems Review",
   description: "Review token changes and component APIs.",
@@ -157,6 +160,27 @@ describe("query-backed mutations", () => {
       expect(invalidateSpy).toHaveBeenCalledWith({
         queryKey: orbitQueryKeys.discover.feed,
       });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.chat.conversations,
+      });
+    });
+  });
+
+  it("invalidates chat channels after leaving a group", async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const joinedGroup = { ...groupDetail, isJoined: true };
+    queryClient.setQueryData(orbitQueryKeys.groups.detail(groupDetail.id), joinedGroup);
+    vi.spyOn(groupDetailApi, "getGroupDetail").mockResolvedValue(joinedGroup);
+    vi.spyOn(leaveGroupApi, "leaveGroup").mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useGroupDetail(groupDetail.id), { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.data?.isJoined).toBe(true));
+    await act(async () => result.current.toggleMembership());
+
+    expect(leaveGroupApi.leaveGroup).toHaveBeenCalledWith(groupDetail.id);
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: orbitQueryKeys.chat.conversations,
     });
   });
 
@@ -229,6 +253,7 @@ describe("query-backed mutations", () => {
 
   it("rolls back group caches when joining a group fails", async () => {
     const { queryClient, Wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
     const groupListItem = {
       id: groupDetail.id,
       name: groupDetail.name,
@@ -277,6 +302,9 @@ describe("query-backed mutations", () => {
       ).toMatchObject({
         isJoined: false,
         memberCount: groupDetail.memberCount,
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.chat.conversations,
       });
     });
   });

@@ -35,8 +35,14 @@ test("chat receives, reconnects without duplicates, and retains history", async 
     // Join through the Groups UI; the backend join operation is idempotent.
     await paidPage.goto("/groups");
     const builders = paidPage.getByRole("link", { name: "Open Orbit Builders" }).locator("..");
-    await builders.getByRole("button", { name: "Join group" }).click();
-    await expect(builders.getByRole("button", { name: "Joined" })).toBeVisible();
+    // The group list now reflects real membership, so a previous project run may have joined already.
+    const joinButton = builders.getByRole("button", { name: "Join group" });
+    const joinedButton = builders.getByRole("button", { name: "Joined" });
+    await expect(joinButton.or(joinedButton)).toBeVisible();
+    if (await joinButton.isVisible()) {
+      await joinButton.click();
+    }
+    await expect(joinedButton).toBeVisible();
 
     await openBuildersChat(page);
     await openBuildersChat(paidPage);

@@ -1,10 +1,12 @@
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { AppProviders } from "@/app/providers/AppProviders";
 import { useChat } from "@/features/chat/model/useChat";
 import type { AuthSession } from "@/features/auth/types";
 import type { Message } from "@/entities/message/model/types";
-import { readChatPreferences } from "@/features/chat/model/chatPreferences";
+import { appConfig } from "@/config/appConfig";
+import { httpClient } from "@/shared/lib/http/httpClient";
+import * as groupApi from "@/features/groups/list-groups/api/listGroups";
 import { createOrbitQueryClient } from "@/shared/lib/query/query-client";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 import type {
@@ -129,6 +131,8 @@ describe("useChat realtime orchestration", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
+    appConfig.chatTransportMode = "mock";
   });
 
   it("joins the active room and leaves the previous room when switching channels", async () => {
@@ -316,7 +320,7 @@ describe("useChat realtime orchestration", () => {
     ).toBe(0);
   });
 
-  it("persists mute state through chat preferences without affecting message flow", async () => {
+  it("mutes a demo channel without affecting message flow", async () => {
     const harness = createTestTransportHarness();
     const { Wrapper, queryClient } = createWrapper();
     const { result } = renderHook(() => useChat({ transport: harness.transport }), {
@@ -331,7 +335,7 @@ describe("useChat realtime orchestration", () => {
       result.current.toggleMuteChannel("dm_release_squad");
     });
 
-    expect(readChatPreferences().mutedChannelIds).toContain("dm_release_squad");
+    expect(result.current.channels.find((channel) => channel.id === "dm_release_squad")?.isMuted).toBe(true);
 
     act(() => {
       harness.emitMessage({
@@ -354,6 +358,70 @@ describe("useChat realtime orchestration", () => {
         .getQueryData<{ id: string; unreadCount?: number }[]>(orbitQueryKeys.chat.conversations)
         ?.find((channel) => channel.id === "dm_release_squad")?.unreadCount,
     ).toBe(2);
+  });
+
+  it("loads backend mute state and persists mute toggles with rollback on failure", async () => {
+    vi.useRealTimers();
+    appConfig.chatTransportMode = "http";
+    vi.spyOn(groupApi, "listGroups").mockResolvedValue([{
+      id: "group-1", name: "Group One", isJoined: true,
+    } as Awaited<ReturnType<typeof groupApi.listGroups>>[number]]);
+    vi.spyOn(httpClient, "get").mockImplementation(async (path) => {
+      if (path === "/chat-rooms/state?room_type=group&room_id=group-1") {
+        return { room_type: "group", room_id: "group-1", is_muted: true, unread_count: 0 };
+      }
+      return [];
+    });
+    const deleteSpy = vi.spyOn(httpClient, "delete").mockResolvedValue({
+      room_type: "group", room_id: "group-1", is_muted: false, success: true,
+    });
+    const putSpy = vi.spyOn(httpClient, "put").mockRejectedValue(new Error("Save failed"));
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useChat(), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.activeChannel?.isMuted).toBe(true));
+    act(() => result.current.toggleMuteChannel("group-1"));
+    expect(result.current.activeChannel?.isMuted).toBe(false);
+    await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith(
+      "/chat-rooms/mute?room_type=group&room_id=group-1",
+    ));
+    await waitFor(() => expect(result.current.activeChannel?.isMuted).toBe(false));
+
+    act(() => result.current.toggleMuteChannel("group-1"));
+    expect(result.current.activeChannel?.isMuted).toBe(true);
+    await waitFor(() => expect(putSpy).toHaveBeenCalledWith("/chat-rooms/mute", {
+      room_type: "group", room_id: "group-1",
+    }));
+    await waitFor(() => expect(result.current.muteError?.message).toBe("Save failed"));
+    expect(result.current.activeChannel?.isMuted).toBe(false);
+  });
+
+  it("sends PUT then DELETE when an unmuted group is toggled twice", async () => {
+    vi.useRealTimers();
+    appConfig.chatTransportMode = "http";
+    vi.spyOn(groupApi, "listGroups").mockResolvedValue([{
+      id: "group-2", name: "Group Two", isJoined: true,
+    } as Awaited<ReturnType<typeof groupApi.listGroups>>[number]]);
+    vi.spyOn(httpClient, "get").mockImplementation(async (path) => path.startsWith("/chat-rooms/state")
+      ? { room_type: "group", room_id: "group-2", is_muted: false, unread_count: 0 }
+      : []);
+    const put = vi.spyOn(httpClient, "put").mockResolvedValue({
+      room_type: "group", room_id: "group-2", is_muted: true, success: true,
+    });
+    const remove = vi.spyOn(httpClient, "delete").mockResolvedValue({
+      room_type: "group", room_id: "group-2", is_muted: false, success: true,
+    });
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useChat(), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.activeChannel?.id).toBe("group-2"));
+    expect(result.current.activeChannel?.isMuted).toBe(false);
+    act(() => result.current.toggleMuteChannel("group-2"));
+    await waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.activeChannel?.isMuted).toBe(true));
+    act(() => result.current.toggleMuteChannel("group-2"));
+    await waitFor(() => expect(remove).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.activeChannel?.isMuted).toBe(false));
   });
 
   it("exposes connection state updates from the transport", () => {

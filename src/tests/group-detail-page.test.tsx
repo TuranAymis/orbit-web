@@ -26,6 +26,7 @@ function createSession(role: OrbitUserRole = "user"): AuthSession {
 }
 
 const groupPayload = {
+  canCreateEvents: true,
   id: "frontend-forge",
   name: "Frontend Forge",
   description:
@@ -246,7 +247,7 @@ describe("GroupDetailPage", () => {
   });
 
   it("hides the create event action for regular users", async () => {
-    vi.spyOn(groupDetailApi, "getGroupDetail").mockResolvedValue(groupPayload as never);
+    vi.spyOn(groupDetailApi, "getGroupDetail").mockResolvedValue({ ...groupPayload, canCreateEvents: false } as never);
 
     renderGroupDetail("/groups/frontend-forge", createSession("user"));
 
@@ -254,6 +255,13 @@ describe("GroupDetailPage", () => {
     expect(
       screen.queryByRole("link", { name: /create event for this group/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("hides the create event action for a moderator outside their group", async () => {
+    vi.spyOn(groupDetailApi, "getGroupDetail").mockResolvedValue({ ...groupPayload, canCreateEvents: false } as never);
+    renderGroupDetail("/groups/frontend-forge", createSession("moderator"));
+    await screen.findByRole("heading", { name: /frontend forge/i });
+    expect(screen.queryByRole("link", { name: /create event for this group/i })).not.toBeInTheDocument();
   });
 
   it("shows the delete group action for admins only", async () => {

@@ -30,6 +30,8 @@ interface EventListResponseItem {
 }
 
 interface EventDetailResponse extends EventListResponseItem {
+  canManage?: boolean;
+  can_manage?: boolean;
   host?: string;
   relatedGroup?: Partial<EventRelatedGroup> | null;
   related_group?: Partial<EventRelatedGroup> | null;
@@ -94,6 +96,7 @@ export function mapEventDetailResponse(
 
   return {
     ...mapEventBase(response),
+    canManage: response.can_manage ?? response.canManage ?? false,
     host: response.host ?? "Orbit Team",
     relatedGroup: response.relatedGroup ?? response.related_group
       ? {

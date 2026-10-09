@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -8,6 +8,7 @@ import type { CreateEventInput } from "@/features/events/create-event/api/create
 interface CreateEventFormProps {
   groups: Group[];
   initialGroupId?: string;
+  hideGroupChooser?: boolean;
   isSubmitting?: boolean;
   onSubmit: (input: CreateEventInput) => Promise<void>;
 }
@@ -40,15 +41,15 @@ function getDefaultDate(offsetHours: number) {
 export function CreateEventForm({
   groups,
   initialGroupId,
+  hideGroupChooser = false,
   isSubmitting = false,
   onSubmit,
 }: CreateEventFormProps) {
   const resolvedInitialGroupId = useMemo(
-    () =>
-      initialGroupId && groups.some((group) => group.id === initialGroupId)
-        ? initialGroupId
-        : groups[0]?.id ?? "",
-    [groups, initialGroupId],
+    () => (initialGroupId && (hideGroupChooser || groups.some((group) => group.id === initialGroupId))
+      ? initialGroupId
+      : groups[0]?.id ?? ""),
+    [groups, hideGroupChooser, initialGroupId],
   );
 
   const [form, setForm] = useState<CreateEventInput>({
@@ -61,6 +62,15 @@ export function CreateEventForm({
     endsAt: getDefaultDate(25),
   });
   const [coverImageUrlError, setCoverImageUrlError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setForm((current) =>
+      (hideGroupChooser && current.groupId === initialGroupId) ||
+      groups.some((group) => group.id === current.groupId)
+        ? current
+        : { ...current, groupId: resolvedInitialGroupId },
+    );
+  }, [groups, hideGroupChooser, initialGroupId, resolvedInitialGroupId]);
 
   return (
     <Card className="border-white/10 bg-white/[0.03]">
@@ -83,7 +93,14 @@ export function CreateEventForm({
             });
           }}
         >
-          <div className="space-y-2">
+          {hideGroupChooser ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">Group</p>
+              <p className="text-sm text-muted-foreground">
+                {groups.find((group) => group.id === form.groupId)?.name ?? form.groupId}
+              </p>
+            </div>
+          ) : <div className="space-y-2">
             <label className="text-sm font-medium text-foreground" htmlFor="event-group">
               Group
             </label>
@@ -102,7 +119,7 @@ export function CreateEventForm({
                 </option>
               ))}
             </select>
-          </div>
+          </div>}
           <div className="grid gap-5 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground" htmlFor="event-title">

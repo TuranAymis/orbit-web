@@ -37,6 +37,7 @@ describe("event mappers", () => {
       location: "Orbit Room",
       attendee_count: 42,
       is_joined: true,
+      can_manage: true,
       related_group: {
         id: "frontend-forge",
         name: "Frontend Forge",
@@ -54,6 +55,7 @@ describe("event mappers", () => {
     expect(result.relatedGroup?.name).toBe("Frontend Forge");
     expect(result.attendeeCount).toBe(42);
     expect(result.isJoined).toBe(true);
+    expect(result.canManage).toBe(true);
     expect(result.participantsPreview[0]?.role).toBe("Moderator");
   });
 
@@ -68,5 +70,6 @@ describe("event mappers", () => {
     expect(result.participantsPreview[0]?.id).toBe("participant_0");
     expect(result.participantsPreview[0]?.name).toBe("Orbit Member");
     expect(result.participantsPreview[0]?.role).toBe("Participant");
+    expect(result.canManage).toBe(false);
   });
 });

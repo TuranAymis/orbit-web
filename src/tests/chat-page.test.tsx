@@ -1,6 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { appConfig } from "@/config/appConfig";
+import { httpClient } from "@/shared/lib/http/httpClient";
+import * as groupApi from "@/features/groups/list-groups/api/listGroups";
 import { AppProviders } from "@/app/providers/AppProviders";
 import { ChatPage } from "@/pages/chat/ChatPage";
 import type { AuthSession } from "@/features/auth/types";
@@ -27,6 +30,11 @@ function renderChatPage() {
     </AppProviders>,
   );
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  appConfig.chatTransportMode = "mock";
+});
 
 describe("ChatPage", () => {
   it("renders the 3-column layout with channels, messages, and members", () => {
@@ -95,6 +103,30 @@ describe("ChatPage", () => {
     expect(
       screen.getByRole("button", { name: /unmute conversation/i }),
     ).toBeInTheDocument();
+    expect(screen.getByText(/deploy preview is ready for qa/i)).toBeInTheDocument();
+  });
+
+  it("shows an error and restores the mute button when saving fails", async () => {
+    appConfig.chatTransportMode = "http";
+    vi.spyOn(groupApi, "listGroups").mockResolvedValue([{
+      id: "group-1", name: "Group One", isJoined: true,
+    } as Awaited<ReturnType<typeof groupApi.listGroups>>[number]]);
+    vi.spyOn(httpClient, "get").mockImplementation(async (path) => path.startsWith("/chat-rooms/state")
+      ? { room_type: "group", room_id: "group-1", is_muted: false, unread_count: 0 }
+      : []);
+    let rejectSave!: (error: Error) => void;
+    vi.spyOn(httpClient, "put").mockImplementation(() => new Promise((_, reject) => {
+      rejectSave = reject;
+    }));
+    const user = userEvent.setup();
+    renderChatPage();
+
+    await screen.findByRole("button", { name: "group one" });
+    await user.click(screen.getByRole("button", { name: "Mute conversation" }));
+    expect(screen.getByRole("button", { name: "Unmute conversation" })).toBeInTheDocument();
+    rejectSave(new Error("Save failed"));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/mute setting could not be saved/i));
+    expect(screen.getByRole("button", { name: "Mute conversation" })).toBeInTheDocument();
   });
 
   it("shows a read-state indicator for the active conversation", () => {

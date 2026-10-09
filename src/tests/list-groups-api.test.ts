@@ -14,6 +14,7 @@ describe("listGroups API", () => {
         category: "Semt",
         location: "Kadikoy",
         member_count: 12,
+        is_joined: true,
       },
       {
         id: "0df839fe-7391-4d25-abc8-e63b39018c82",
@@ -24,6 +25,7 @@ describe("listGroups API", () => {
         category: "Semt",
         location: "Maltepe",
         member_count: 8,
+        is_joined: false,
       },
     ]);
 
@@ -36,6 +38,7 @@ describe("listGroups API", () => {
       imageUrl:
         "https://www.gazetekadikoy.com.tr/Uploads/gazetekadikoy.com.tr/202204211832531-img.jpg",
       memberCount: 12,
+      isJoined: true,
     });
     expect(result[1]).toMatchObject({
       name: "Maltepe",
@@ -43,6 +46,7 @@ describe("listGroups API", () => {
       imageUrl:
         "https://media-cdn.tripadvisor.com/media/photo-m/1280/1b/51/f1/e0/maltepe-sahil.jpg",
       memberCount: 8,
+      isJoined: false,
     });
   });
 
@@ -63,5 +67,6 @@ describe("listGroups API", () => {
 
     expect(result[0]?.name).toBe("Kadikoy");
     expect(result[0]?.imageUrl).toBe("https://example.com/kadikoy.jpg");
+    expect(result[0]?.isJoined).toBe(false);
   });
 });

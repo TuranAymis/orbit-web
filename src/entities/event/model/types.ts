@@ -26,6 +26,7 @@ export interface EventRelatedGroup {
 }
 
 export interface EventDetail extends EventListItem {
+  canManage: boolean;
   host: string;
   participantsPreview: EventParticipantPreview[];
   relatedGroup: EventRelatedGroup | null;

@@ -101,9 +101,9 @@ export function mapSettingsResponse(payload: unknown): UserSettings {
   };
 }
 
-export function mapUpdateProfileInput(input: UpdateProfileInput): UpdateProfileInput {
+export function mapUpdateProfileInput(input: UpdateProfileInput) {
   return {
-    name: input.name.trim(),
+    full_name: input.name.trim(),
     bio: input.bio.trim(),
     location: input.location.trim(),
   };

@@ -79,6 +79,14 @@ function getAuthErrorMessage(kind: AuthErrorKind, error: HttpError) {
 
       return error.message || "We couldn't create your account right now.";
     case "verify":
+      if (error.status === 400 && getBackendAuthErrorText(error).includes("verification code expired.")) {
+        return "That verification code has expired. Request a new code and try again.";
+      }
+
+      if (error.status === 400 && getBackendAuthErrorText(error).includes("invalid verification code.")) {
+        return "That verification code is incorrect. Check the code in your email and try again.";
+      }
+
       if (error.status === 400 || error.status === 404 || error.status === 422) {
         return "We couldn't verify that code. Check the email and verification code, then try again.";
       }

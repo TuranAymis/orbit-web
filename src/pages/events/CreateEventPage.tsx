@@ -2,7 +2,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/features/auth/useAuth";
 import { useCreateEvent } from "@/features/events/create-event/model/useCreateEvent";
 import { useGroups } from "@/features/groups/list-groups/model/useGroups";
-import { canCreateEvent } from "@/shared/lib/access/permissions";
+import { canAccessEventCreation } from "@/shared/lib/access/permissions";
 import { useMutationFeedback } from "@/shared/lib/mutations/useMutationFeedback";
 import { ForbiddenState } from "@/shared/ui/ForbiddenState";
 import { Button } from "@/shared/ui/button";
@@ -18,8 +18,27 @@ export function CreateEventPage() {
   const { data: groups, isLoading, error, isEmpty, refetch } = useGroups();
   const createEventMutation = useCreateEvent();
   const { message, clearMessage } = useMutationFeedback(createEventMutation.error);
+  const initialGroupId = searchParams.get("groupId") ?? undefined;
+  const isModerator = user?.role === "moderator";
 
-  if (!canCreateEvent(user)) {
+  const form = (
+    <CreateEventForm
+      groups={groups}
+      initialGroupId={initialGroupId}
+      hideGroupChooser={isModerator}
+      isSubmitting={createEventMutation.isPending}
+      onSubmit={async (input) => {
+        try {
+          const createdEvent = await createEventMutation.mutateAsync(input);
+          navigate(`/events/${createdEvent.id}`);
+        } catch {
+          return;
+        }
+      }}
+    />
+  );
+
+  if (!canAccessEventCreation(user)) {
     return (
       <PageContainer
         title="Create Event"
@@ -51,7 +70,11 @@ export function CreateEventPage() {
             </div>
           </div>
         ) : null}
-        <AsyncState
+        {isModerator && !initialGroupId ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-sm text-muted-foreground">
+            Open a group you moderate and choose “Create event for this group” to continue.
+          </div>
+        ) : isModerator ? form : <AsyncState
           isLoading={isLoading}
           error={error}
           isEmpty={isEmpty}
@@ -62,20 +85,8 @@ export function CreateEventPage() {
           emptyTitle="No groups are available yet"
           emptyDescription="Orbit needs at least one group before a new event can be created."
         >
-          <CreateEventForm
-            groups={groups}
-            initialGroupId={searchParams.get("groupId") ?? undefined}
-            isSubmitting={createEventMutation.isPending}
-            onSubmit={async (input) => {
-              try {
-                const createdEvent = await createEventMutation.mutateAsync(input);
-                navigate(`/events/${createdEvent.id}`);
-              } catch {
-                return;
-              }
-            }}
-          />
-        </AsyncState>
+          {form}
+        </AsyncState>}
       </div>
     </PageContainer>
   );

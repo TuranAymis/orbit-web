@@ -279,4 +279,43 @@ describe("DiscoverPage", () => {
 
     expect(screen.getByText(/we couldn't load events right now/i)).toBeInTheDocument();
   });
+
+  it("keeps events visible and offers groups retry when the groups section fails", async () => {
+    const refetch = vi.fn();
+    vi.spyOn(useDiscoverFeedModule, "useDiscoverFeed").mockReturnValue({
+      data: createDiscoverPageDataMock({
+        sections: [
+          {
+            type: "groups",
+            title: "Groups For You",
+            description: "Communities pulled from the live Orbit backend.",
+            items: [],
+            error: "Groups request failed",
+            isEmpty: true,
+          },
+          {
+            type: "events",
+            title: "Events For You",
+            description: "Upcoming sessions and live gatherings from the backend feed.",
+            items: mockEvents,
+            error: null,
+            isEmpty: false,
+          },
+        ],
+        hasAnyContent: true,
+        hasAnyError: true,
+      }),
+      error: null,
+      feed: { groups: [], events: mockEvents, trending: [] },
+      refetch,
+    });
+
+    renderDiscoverPage();
+
+    expect(screen.getByText(/we couldn't load groups right now/i)).toBeInTheDocument();
+    expect(screen.getByText(/groups request failed/i)).toBeInTheDocument();
+    expect(screen.getByText(/design systems review/i)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: /retry/i }));
+    expect(refetch).toHaveBeenCalledOnce();
+  });
 });
