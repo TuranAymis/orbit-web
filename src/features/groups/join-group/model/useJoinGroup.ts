@@ -49,6 +49,7 @@ export function useJoinGroup(): UseJoinGroupResult {
         queryClient.invalidateQueries({ queryKey: orbitQueryKeys.groups.list }),
         queryClient.invalidateQueries({ queryKey: orbitQueryKeys.discover.feed }),
         queryClient.invalidateQueries({ queryKey: orbitQueryKeys.groups.detail(groupId) }),
+        queryClient.invalidateQueries({ queryKey: orbitQueryKeys.chat.conversations }),
       ]);
     },
   });

@@ -1,4 +1,5 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { render, renderHook, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers/AppProviders";
@@ -77,6 +78,7 @@ describe("group joined-state synchronization", () => {
 
   it("updates groups list, discover feed, detail cache, and joined-state cache after joining", async () => {
     const { queryClient, Wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
     const group: Group = {
       id: "frontend-forge",
       name: "Frontend Forge",
@@ -89,6 +91,7 @@ describe("group joined-state synchronization", () => {
     queryClient.setQueryData(orbitQueryKeys.groups.all, [group]);
     queryClient.setQueryData<GroupDetail>(orbitQueryKeys.groups.detail(group.id), {
       ...group,
+      canCreateEvents: false,
       coverImageUrl: group.imageUrl,
       category: "Engineering",
       location: "Remote",
@@ -140,6 +143,53 @@ describe("group joined-state synchronization", () => {
         queryClient.getQueryData<Record<string, boolean>>(orbitQueryKeys.groups.joinedState),
       ).toMatchObject({
         [group.id]: true,
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.chat.conversations,
+      });
+    });
+  });
+
+  it("restores the rendered join button after a failed first join", async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const group: Group = {
+      id: "frontend-forge",
+      name: "Frontend Forge",
+      description: "UI systems and accessibility.",
+      memberCount: 9840,
+      imageUrl: "https://example.com/group.png",
+      isJoined: false,
+    };
+    queryClient.setQueryData(orbitQueryKeys.groups.list, [group]);
+    vi.spyOn(listGroupsApi, "listGroups").mockResolvedValue([group]);
+    vi.spyOn(joinGroupApi, "joinGroup").mockRejectedValue(new Error("Join failed"));
+
+    function JoinState() {
+      const { data } = useGroups();
+      const { joinById, error } = useJoinGroup();
+      const isJoined = data[0]?.isJoined ?? false;
+      return (
+        <div>
+          <span>{isJoined ? "Joined" : "Not joined"}</span>
+          {error ? <span>{error.message}</span> : null}
+          <button disabled={isJoined} onClick={() => void joinById(group.id).catch(() => {})}>
+            {isJoined ? "Joined" : "Join group"}
+          </button>
+        </div>
+      );
+    }
+
+    render(<JoinState />, { wrapper: Wrapper });
+    await userEvent.setup().click(screen.getByRole("button", { name: "Join group" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Join failed")).toBeInTheDocument();
+      expect(screen.getByText("Not joined")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Join group" })).toBeEnabled();
+      expect(queryClient.getQueryData(orbitQueryKeys.groups.joinedState)).toBeUndefined();
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: orbitQueryKeys.chat.conversations,
       });
     });
   });

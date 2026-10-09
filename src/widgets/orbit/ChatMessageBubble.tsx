@@ -23,10 +23,10 @@ export function ChatMessageBubble({
           <AvatarFallback>{author.slice(0, 2).toUpperCase()}</AvatarFallback>
         </Avatar>
       ) : null}
-      <div className={cn("max-w-[72%] space-y-2", isOwn && "items-end")}>
+      <div className={cn("min-w-0 max-w-[72%] space-y-2", isOwn && "items-end")}>
         <div
           className={cn(
-            "rounded-[24px] border px-5 py-4 text-lg leading-8",
+            "break-words rounded-[24px] border px-5 py-4 text-lg leading-8",
             isOwn
               ? "border-primary/30 bg-primary/12 text-primary"
               : isMention

@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { CalendarDays, MapPin } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
-import { canCreateEvent } from "@/shared/lib/access/permissions";
 import { useEvents } from "@/features/events/list-events/model/useEvents";
 import {
   captureEventAttendanceSnapshot,
@@ -13,6 +12,7 @@ import {
 import { joinEvent } from "@/features/events/join-event/api/joinEvent";
 import { leaveEvent } from "@/features/events/leave-event/api/leaveEvent";
 import { logMutationLifecycle } from "@/shared/lib/mutations/mutationLogger";
+import { useMutationFeedback } from "@/shared/lib/mutations/useMutationFeedback";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 import { AsyncState } from "@/shared/ui/AsyncState";
 import { Badge } from "@/shared/ui/badge";
@@ -78,6 +78,7 @@ export function EventsPage() {
       ]);
     },
   });
+  const { message, clearMessage } = useMutationFeedback(attendanceMutation.error);
 
   return (
     <PageContainer
@@ -85,7 +86,7 @@ export function EventsPage() {
       subtitle="Curated experiences in the synthetic realm with RSVP state connected to the existing backend."
       actions={
         <div className="flex items-center gap-3">
-          {canCreateEvent(user) ? (
+          {user?.role === "admin" ? (
             <Link to="/events/create">
               <Button variant="secondary">Create Event</Button>
             </Link>
@@ -98,6 +99,16 @@ export function EventsPage() {
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
+          {message ? (
+            <div role="alert" className="rounded-[22px] border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-foreground">
+              <div className="flex items-center justify-between gap-3">
+                <span>{message}</span>
+                <Button size="sm" variant="ghost" onClick={clearMessage}>
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <Tabs
               value={activeTab}

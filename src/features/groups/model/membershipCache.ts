@@ -117,5 +117,7 @@ export function restoreGroupMembershipCaches(
 
   if (snapshot.previousJoinedState) {
     queryClient.setQueryData(orbitQueryKeys.groups.joinedState, snapshot.previousJoinedState);
+  } else {
+    queryClient.removeQueries({ queryKey: orbitQueryKeys.groups.joinedState, exact: true });
   }
 }

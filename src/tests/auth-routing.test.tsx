@@ -1,11 +1,13 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers/AppProviders";
 import { routes } from "@/app/router/routes";
 import { AUTH_INVALID_EVENT } from "@/features/auth/auth-storage";
 import type { AuthSession } from "@/features/auth/types";
+import { AUTH_STORAGE_KEY } from "@/features/auth/auth-storage";
+import { httpClient, HttpError } from "@/shared/lib/http/httpClient";
 
 const demoSession: AuthSession = {
   isAuthenticated: true,
@@ -40,6 +42,7 @@ function renderApp(initialEntry: string, session?: AuthSession | null) {
 
 describe("Orbit auth routing", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     window.localStorage.clear();
   });
 
@@ -183,6 +186,27 @@ describe("Orbit auth routing", () => {
         screen.getByRole("heading", { name: /welcome back to orbit/i }),
       ).toBeInTheDocument();
     });
+  });
+
+  it("clears the session and redirects after a protected HTTP request returns 401", async () => {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(demoSession));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "Could not validate credentials." }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    renderApp("/membership", demoSession);
+
+    await act(async () => {
+      await expect(httpClient.get("/protected-test")).rejects.toBeInstanceOf(HttpError);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /welcome back to orbit/i })).toBeInTheDocument();
+    });
+    expect(window.localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+    expect(screen.queryByRole("navigation", { name: /primary/i })).not.toBeInTheDocument();
   });
 
   it("renders authenticated user data in the shell", () => {

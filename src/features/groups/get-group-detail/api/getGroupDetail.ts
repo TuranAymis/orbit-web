@@ -3,6 +3,7 @@ import type { GroupDetail } from "@/entities/group/model/types";
 import { httpClient } from "@/shared/lib/http/httpClient";
 
 interface BackendGroupResponse {
+  can_create_events?: boolean;
   id: string;
   name: string;
   description?: string | null;

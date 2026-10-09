@@ -13,7 +13,7 @@ interface BackendGroupResponse {
   memberCount?: number;
   member_count?: number;
   isJoined?: boolean;
-  is_joined?: boolean;
+  is_joined: boolean;
 }
 
 function normalizeListResponse(payload: unknown): BackendGroupResponse[] {

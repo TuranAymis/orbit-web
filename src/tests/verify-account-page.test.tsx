@@ -134,4 +134,23 @@ describe("VerifyAccountPage", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it.each([
+    ["Invalid verification code.", /that verification code is incorrect/i],
+    ["Verification code expired.", /that verification code has expired/i],
+  ])("shows a specific message for backend verification error %s", async (detail, expected) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    renderVerifyAccountPage();
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText(/verification code/i), "123456");
+    await user.click(screen.getByRole("button", { name: /verify account/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(expected);
+  });
 });

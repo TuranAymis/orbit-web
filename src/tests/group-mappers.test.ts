@@ -34,6 +34,16 @@ describe("group mappers", () => {
     expect(result[0]?.isJoined).toBe(true);
   });
 
+  it("maps is_joined true, false, and missing values", () => {
+    const result = mapGroupListResponse([
+      { id: "joined", name: "Joined", is_joined: true },
+      { id: "not-joined", name: "Not joined", is_joined: false },
+      { id: "legacy", name: "Legacy" },
+    ]);
+
+    expect(result.map((group) => group.isJoined)).toEqual([true, false, false]);
+  });
+
   it("maps backend payloads into the group detail domain shape", () => {
     const result = mapGroupDetailResponse({
       id: "frontend-forge",
@@ -42,6 +52,7 @@ describe("group mappers", () => {
       cover_image_url: "https://example.com/cover.png",
       member_count: 3400,
       is_joined: true,
+      can_create_events: true,
       category: "Engineering",
       location: "Remote-first",
       founder: {
@@ -75,5 +86,10 @@ describe("group mappers", () => {
     expect(result.memberPreview[0]?.avatarFallback).toBe("ET");
     expect(result.memberCount).toBe(3400);
     expect(result.isJoined).toBe(true);
+    expect(result.canCreateEvents).toBe(true);
+  });
+
+  it("defaults missing creation scope to false", () => {
+    expect(mapGroupDetailResponse({ id: "legacy", name: "Legacy" }).canCreateEvents).toBe(false);
   });
 });

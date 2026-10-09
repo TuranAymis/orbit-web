@@ -34,6 +34,7 @@ export interface GroupMemberPreview {
 }
 
 export interface GroupDetail {
+  canCreateEvents: boolean;
   id: string;
   name: string;
   description: string;

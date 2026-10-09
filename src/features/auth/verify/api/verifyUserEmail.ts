@@ -17,7 +17,7 @@ export async function verifyUserEmail(
   const normalizedCode = input.code.trim();
 
   try {
-    await httpClient.post("/auth/verify", {
+    await httpClient.post("/auth/verify-email", {
       email: normalizedEmail,
       code: normalizedCode,
     });

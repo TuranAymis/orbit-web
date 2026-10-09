@@ -17,9 +17,13 @@ interface NotificationResponse {
   title?: string;
   message?: string;
   createdAt?: string;
+  created_at?: string;
   isRead?: boolean;
+  is_read?: boolean;
   relatedEntityType?: string;
+  related_entity_type?: string;
   relatedEntityId?: string;
+  related_entity_id?: string;
   actor?: NotificationResponseActor | null;
   actionUrl?: string;
 }
@@ -66,10 +70,10 @@ function mapNotification(response: NotificationResponse, index: number): Notific
     type: mapNotificationType(response.type),
     title: response.title ?? "Orbit update",
     message: response.message ?? "You have a new notification.",
-    createdAt: response.createdAt ?? new Date().toISOString(),
-    isRead: response.isRead ?? false,
-    relatedEntityType: mapRelatedEntityType(response.relatedEntityType),
-    relatedEntityId: response.relatedEntityId ?? null,
+    createdAt: response.createdAt ?? response.created_at ?? new Date().toISOString(),
+    isRead: response.isRead ?? response.is_read ?? false,
+    relatedEntityType: mapRelatedEntityType(response.relatedEntityType ?? response.related_entity_type),
+    relatedEntityId: response.relatedEntityId ?? response.related_entity_id ?? null,
     actor: mapActor(response.actor),
     actionUrl: response.actionUrl ?? null,
   };

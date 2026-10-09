@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "@/features/auth/useAuth";
 import { useDeleteEvent } from "@/features/events/delete-event/model/useDeleteEvent";
 import { useEventDetail } from "@/features/events/get-event-detail/model/useEventDetail";
 import { canDeleteEvent } from "@/shared/lib/access/permissions";
@@ -156,7 +155,6 @@ export function EventDetailPage() {
   const navigate = useNavigate();
   const { eventId } = useParams<{ eventId: string }>();
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-  const { user } = useAuth();
   const {
     data,
     isLoading,
@@ -200,7 +198,7 @@ export function EventDetailPage() {
         onToggleAttendance={() => void toggleAttendance()}
         mainContent={<EventAboutPanel description={data.description} />}
         heroActions={
-          canDeleteEvent(user) ? (
+          canDeleteEvent(data) ? (
             <EventDeleteAction
               isOpen={isConfirmingDelete}
               isDeleting={deleteEventMutation.isPending}

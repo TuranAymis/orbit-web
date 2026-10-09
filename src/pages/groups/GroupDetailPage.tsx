@@ -157,7 +157,7 @@ export function GroupDetailPage() {
             setSearchParams(nextSearchParams, { replace: true });
           }}
         />
-        {canCreateEvent(user) ? (
+        {canCreateEvent(data) ? (
           <Link
             to={`/events/create?groupId=${encodeURIComponent(data.id)}`}
             className="inline-flex h-10 items-center justify-center rounded-md border border-white/10 bg-transparent px-4 py-2 text-sm font-medium text-foreground transition hover:bg-white/5"

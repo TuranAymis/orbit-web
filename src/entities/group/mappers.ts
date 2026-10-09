@@ -23,6 +23,8 @@ interface GroupListResponseItem {
 }
 
 interface GroupDetailResponse extends GroupListResponseItem {
+  canCreateEvents?: boolean;
+  can_create_events?: boolean;
   id: string;
   name: string;
   isJoined?: boolean;
@@ -68,7 +70,7 @@ export function mapGroupListResponse(response: GroupListResponseItem[]): Group[]
       group.cover_image_url ??
       group.coverImageUrl ??
       fallbackGroupImage,
-    isJoined: group.isJoined ?? group.is_joined ?? group.joined ?? false,
+    isJoined: group.is_joined ?? group.isJoined ?? group.joined ?? false,
   }));
 }
 
@@ -87,6 +89,7 @@ export function mapGroupDetailResponse(
 
   return {
     id: response.id,
+    canCreateEvents: response.can_create_events ?? response.canCreateEvents ?? false,
     name: response.name,
     description: response.description ?? "No description available yet.",
     coverImageUrl:

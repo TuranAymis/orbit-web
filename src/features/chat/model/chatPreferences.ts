@@ -1,12 +1,10 @@
 export interface ChatPreferences {
-  mutedChannelIds: string[];
   lastReadAtByChannel: Record<string, string>;
 }
 
 const CHAT_PREFERENCES_STORAGE_KEY = "orbit:chat:preferences";
 
 const defaultChatPreferences: ChatPreferences = {
-  mutedChannelIds: [],
   lastReadAtByChannel: {},
 };
 
@@ -19,10 +17,6 @@ function normalizeChatPreferences(payload: unknown): ChatPreferences {
     return defaultChatPreferences;
   }
 
-  const mutedChannelIds = Array.isArray(payload.mutedChannelIds)
-    ? payload.mutedChannelIds.filter((value): value is string => typeof value === "string")
-    : [];
-
   const lastReadAtByChannel = isRecord(payload.lastReadAtByChannel)
     ? Object.fromEntries(
         Object.entries(payload.lastReadAtByChannel).filter(
@@ -32,7 +26,6 @@ function normalizeChatPreferences(payload: unknown): ChatPreferences {
     : {};
 
   return {
-    mutedChannelIds,
     lastReadAtByChannel,
   };
 }

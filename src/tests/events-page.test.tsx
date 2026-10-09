@@ -6,6 +6,8 @@ import { AppProviders } from "@/app/providers/AppProviders";
 import { EventsPage } from "@/pages/events/EventsPage";
 import type { AuthSession, OrbitUserRole } from "@/features/auth/types";
 import * as listEventsApi from "@/features/events/list-events/api/listEvents";
+import * as joinEventApi from "@/features/events/join-event/api/joinEvent";
+import * as leaveEventApi from "@/features/events/leave-event/api/leaveEvent";
 
 const eventsPayload = [
   {
@@ -70,12 +72,19 @@ describe("EventsPage", () => {
     expect(screen.getByText(/orbit live room/i)).toBeInTheDocument();
   });
 
-  it("shows the create event action for admins and moderators", async () => {
+  it("shows the unscoped create event action for admins", async () => {
     vi.spyOn(listEventsApi, "listEvents").mockResolvedValue(eventsPayload as never);
 
-    renderEventsPage(createSession("moderator"));
+    renderEventsPage(createSession("admin"));
 
     expect(await screen.findByRole("link", { name: /create event/i })).toBeInTheDocument();
+  });
+
+  it("hides the unscoped create event action for moderators", async () => {
+    vi.spyOn(listEventsApi, "listEvents").mockResolvedValue(eventsPayload as never);
+    renderEventsPage(createSession("moderator"));
+    await screen.findByRole("heading", { name: /design systems review/i });
+    expect(screen.queryByRole("link", { name: /create event/i })).not.toBeInTheDocument();
   });
 
   it("hides the create event action for regular users", async () => {
@@ -125,5 +134,29 @@ describe("EventsPage", () => {
     });
 
     expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["join", false, "RSVP now"],
+    ["leave", true, "Attending"],
+  ])("shows a failed %s RSVP and restores the button", async (action, isJoined, buttonName) => {
+    vi.spyOn(listEventsApi, "listEvents").mockResolvedValue([
+      { ...eventsPayload[0], isJoined },
+    ] as never);
+    const failure = new Error(`Could not ${action} event`);
+    if (isJoined) {
+      vi.spyOn(leaveEventApi, "leaveEvent").mockRejectedValue(failure);
+    } else {
+      vi.spyOn(joinEventApi, "joinEvent").mockRejectedValue(failure);
+    }
+
+    renderEventsPage();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: buttonName }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(failure.message);
+    expect(screen.getByRole("button", { name: buttonName })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /dismiss/i }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

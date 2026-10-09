@@ -27,6 +27,7 @@ function createSession(role: OrbitUserRole = "user"): AuthSession {
 }
 
 const eventPayload = {
+  canManage: true,
   id: "design-systems-review",
   title: "Design Systems Review",
   description:
@@ -170,12 +171,26 @@ describe("EventDetailPage", () => {
   });
 
   it("hides the delete event action for regular users", async () => {
-    vi.spyOn(getEventDetailApi, "getEventDetail").mockResolvedValue(eventPayload as never);
+    vi.spyOn(getEventDetailApi, "getEventDetail").mockResolvedValue({ ...eventPayload, canManage: false } as never);
 
     renderEventDetail("/events/design-systems-review", createSession("user"));
 
     await screen.findByRole("heading", { name: /design systems review/i });
     expect(screen.queryByRole("button", { name: /delete event/i })).not.toBeInTheDocument();
+  });
+
+  it("hides the delete action for a moderator outside the event scope", async () => {
+    vi.spyOn(getEventDetailApi, "getEventDetail").mockResolvedValue({ ...eventPayload, canManage: false } as never);
+    renderEventDetail("/events/design-systems-review", createSession("moderator"));
+    await screen.findByRole("heading", { name: /design systems review/i });
+    expect(screen.queryByRole("button", { name: /delete event/i })).not.toBeInTheDocument();
+  });
+
+  it("shows the delete action for an admin", async () => {
+    vi.spyOn(getEventDetailApi, "getEventDetail").mockResolvedValue(eventPayload as never);
+    renderEventDetail("/events/design-systems-review", createSession("admin"));
+    await screen.findByRole("heading", { name: /design systems review/i });
+    expect(screen.getByRole("button", { name: /delete event/i })).toBeInTheDocument();
   });
 
   it("opens a confirmation state before deleting the event", async () => {
