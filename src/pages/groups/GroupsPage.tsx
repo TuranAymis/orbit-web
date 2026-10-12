@@ -88,7 +88,7 @@ export function GroupsPage() {
                   <GroupCard
                     group={group}
                     isJoining={joinGroupMutation.pendingGroupId === group.id}
-                    onJoinGroup={(groupId) => void joinGroupMutation.joinById(groupId)}
+                    onJoinGroup={(groupId) => void joinGroupMutation.joinById(groupId).catch(() => undefined)}
                   />
                 </div>
               ))}

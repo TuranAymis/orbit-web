@@ -1,6 +1,8 @@
 import { mapGroupDetailResponse } from "@/entities/group/mappers";
 import type { GroupDetail } from "@/entities/group/model/types";
 import { httpClient } from "@/shared/lib/http/httpClient";
+import { getStoredUserId } from "@/features/auth/auth-storage";
+import { readThrough } from "@/shared/lib/offline/offlineCache";
 
 interface BackendGroupResponse {
   can_create_events?: boolean;
@@ -36,6 +38,10 @@ interface BackendGroupResponse {
 }
 
 export async function getGroupDetail(groupId: string): Promise<GroupDetail> {
+  return readThrough({ userId: getStoredUserId(), key: `group:${groupId}`, fetcher: () => fetchGroupDetail(groupId) });
+}
+
+async function fetchGroupDetail(groupId: string): Promise<GroupDetail> {
   const payload = await httpClient.get<BackendGroupResponse>(
     `/groups/${encodeURIComponent(groupId)}`,
   );

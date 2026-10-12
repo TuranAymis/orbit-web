@@ -169,7 +169,7 @@ export function GroupDetailPage() {
       <GroupDetailLayout
         group={data}
         isMutatingMembership={isMutatingMembership}
-        onToggleMembership={() => void toggleMembership()}
+        onToggleMembership={() => void toggleMembership().catch(() => undefined)}
         mainContent={tabContent}
         heroActions={
           canDeleteGroup(user) ? (

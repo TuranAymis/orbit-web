@@ -10,6 +10,7 @@ export function useCreateGroup() {
   const queryClient = useQueryClient();
 
   return useMutation<CreatedGroup, Error, CreateGroupInput>({
+    networkMode: "always",
     mutationFn: createGroup,
     onSettled: async () => {
       await Promise.all([

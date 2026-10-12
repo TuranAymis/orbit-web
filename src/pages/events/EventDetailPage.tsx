@@ -195,7 +195,7 @@ export function EventDetailPage() {
       <EventDetailLayout
         event={data}
         isMutatingAttendance={isMutatingAttendance}
-        onToggleAttendance={() => void toggleAttendance()}
+        onToggleAttendance={() => void toggleAttendance().catch(() => undefined)}
         mainContent={<EventAboutPanel description={data.description} />}
         heroActions={
           canDeleteEvent(data) ? (

@@ -20,6 +20,7 @@ export function useEvents(): UseEventsResult {
     authReady && !isAuthLoading && isAuthenticated && hasValidAccessToken(session);
 
   const query = useQuery({
+    networkMode: "always",
     queryKey: orbitQueryKeys.events.list,
     queryFn: listEvents,
     enabled: isQueryEnabled,

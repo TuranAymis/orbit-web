@@ -10,6 +10,7 @@ export function useCreateEvent() {
   const queryClient = useQueryClient();
 
   return useMutation<CreatedEvent, Error, CreateEventInput>({
+    networkMode: "always",
     mutationFn: createEvent,
     onSuccess: async (createdEvent, input) => {
       await Promise.all([

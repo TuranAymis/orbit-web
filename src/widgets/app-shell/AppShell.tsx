@@ -3,8 +3,13 @@ import { Outlet, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AppSidebar } from "@/widgets/orbit/AppSidebar";
 import { AppTopbar } from "@/widgets/orbit/AppTopbar";
+import { OfflineBanner } from "@/shared/ui/OfflineBanner";
+import { useOutboxSync } from "@/shared/lib/offline/useOutboxSync";
+import { useAuth } from "@/features/auth/useAuth";
 
 export function AppShell() {
+  useOutboxSync();
+  const { user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isChatPage = useLocation().pathname === "/chat";
 
@@ -33,6 +38,7 @@ export function AppShell() {
 
         <div className="flex min-w-0 min-h-0 flex-1 flex-col gap-4 md:gap-6">
           <AppTopbar onOpenSidebar={() => setMobileOpen(true)} />
+          <OfflineBanner userId={user?.id} />
           <main className={cn("min-h-[calc(100vh-7rem)] rounded-[30px] border border-white/8 bg-[#0f0f15]/90 p-4 shadow-shell backdrop-blur md:p-8", isChatPage && "min-h-0 flex-1 overflow-hidden p-2 sm:p-4 lg:p-6")}>
             <Outlet />
           </main>

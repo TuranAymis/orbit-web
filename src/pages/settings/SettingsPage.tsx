@@ -7,11 +7,13 @@ import { AsyncState } from "@/shared/ui/AsyncState";
 import { LoadingState } from "@/shared/ui/LoadingState";
 import { PageContainer } from "@/shared/ui/page-container";
 import { SettingsForm } from "@/widgets/settings/SettingsForm";
+import { useInstallPrompt } from "@/shared/lib/pwa/useInstallPrompt";
 
 export function SettingsPage() {
   const { data, isLoading, error, refetch } = useSettings();
   const updateSettingsMutation = useUpdateSettings();
   const { message, clearMessage } = useMutationFeedback(updateSettingsMutation.error);
+  const { canInstall, promptInstall } = useInstallPrompt();
 
   return (
     <PageContainer
@@ -24,6 +26,15 @@ export function SettingsPage() {
       }
     >
       <div className="space-y-6">
+        {canInstall ? (
+          <section className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 p-5">
+            <div>
+              <h2 className="text-xl font-semibold">Orbit app</h2>
+              <p className="text-sm text-muted-foreground">Add Orbit to this device for quick access.</p>
+            </div>
+            <Button variant="outline" onClick={() => void promptInstall()}>Install app</Button>
+          </section>
+        ) : null}
         <PushSettings />
         {message ? (
           <div className="rounded-2xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-foreground">
