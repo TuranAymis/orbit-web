@@ -17,6 +17,7 @@ import {
   writeStoredSession,
 } from "@/features/auth/auth-storage";
 import type { AuthSession, LoginCredentials } from "@/features/auth/types";
+import { clearOfflineUser } from "@/shared/lib/offline/offlineCache";
 
 interface AuthContextValue {
   session: AuthSession | null;
@@ -56,6 +57,8 @@ export function AuthProvider({
 
   useEffect(() => {
     function handleInvalidSession() {
+      const userId = readStoredSession()?.user.id;
+      if (userId) void clearOfflineUser(userId);
       setSession(null);
       writeStoredSession(null);
     }
@@ -83,9 +86,10 @@ export function AuthProvider({
   }, []);
 
   const logout = useCallback(() => {
+    if (session) void clearOfflineUser(session.user.id);
     setSession(null);
     writeStoredSession(null);
-  }, []);
+  }, [session]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

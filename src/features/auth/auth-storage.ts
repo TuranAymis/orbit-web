@@ -1,4 +1,5 @@
 import type { AuthSession } from "@/features/auth/types";
+import { clearOfflineUser } from "@/shared/lib/offline/offlineCache";
 
 export const AUTH_STORAGE_KEY = "orbit.auth.session";
 export const AUTH_INVALID_EVENT = "orbit:auth:invalid";
@@ -88,12 +89,18 @@ export function clearStoredSession() {
     return;
   }
 
+  const userId = readStoredSession()?.user.id;
+  if (userId) void clearOfflineUser(userId);
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
   window.dispatchEvent(new CustomEvent(AUTH_SESSION_UPDATED_EVENT, { detail: null }));
 }
 
 export function getStoredAccessToken(): string | null {
   return readStoredSession()?.accessToken ?? null;
+}
+
+export function getStoredUserId(): string | null {
+  return readStoredSession()?.user.id ?? null;
 }
 
 export function updateStoredSession(

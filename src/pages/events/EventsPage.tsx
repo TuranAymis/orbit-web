@@ -11,6 +11,7 @@ import {
 } from "@/features/events/model/attendanceCache";
 import { joinEvent } from "@/features/events/join-event/api/joinEvent";
 import { leaveEvent } from "@/features/events/leave-event/api/leaveEvent";
+import { executeOrQueue } from "@/shared/lib/mutations/offlineMutation";
 import { logMutationLifecycle } from "@/shared/lib/mutations/mutationLogger";
 import { useMutationFeedback } from "@/shared/lib/mutations/useMutationFeedback";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
@@ -32,14 +33,13 @@ export function EventsPage() {
   const queryClient = useQueryClient();
 
   const attendanceMutation = useMutation({
+    networkMode: "always",
     mutationFn: async (event: EventListItem) => {
       if (event.isJoined) {
-        await leaveEvent(event.id);
-        return { eventId: event.id, nextJoined: false };
+        return executeOrQueue(user?.id, "event.leave", event.id, () => leaveEvent(event.id));
       }
 
-      await joinEvent(event.id);
-      return { eventId: event.id, nextJoined: true };
+      return executeOrQueue(user?.id, "event.join", event.id, () => joinEvent(event.id));
     },
     onMutate: async (event) => {
       logMutationLifecycle("event.attendance.list-toggle", "start", {
@@ -71,7 +71,8 @@ export function EventsPage() {
         restoreEventAttendanceCaches(queryClient, attendanceMutation.variables.id, context);
       }
     },
-    onSettled: async () => {
+    onSettled: async (queued) => {
+      if (queued) return;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: orbitQueryKeys.events.list }),
         queryClient.invalidateQueries({ queryKey: orbitQueryKeys.discover.feed }),

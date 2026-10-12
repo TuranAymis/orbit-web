@@ -11,6 +11,7 @@ import {
   restoreEventAttendanceCaches,
   syncEventAttendanceCaches,
 } from "@/features/events/model/attendanceCache";
+import { executeOrQueue } from "@/shared/lib/mutations/offlineMutation";
 import { logMutationLifecycle } from "@/shared/lib/mutations/mutationLogger";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 
@@ -35,6 +36,7 @@ export function useEventDetail(eventId?: string): UseEventDetailResult {
     isAuthenticated &&
     hasValidAccessToken(session);
   const query = useQuery({
+    networkMode: "always",
     queryKey: eventId ? orbitQueryKeys.events.detail(eventId) : orbitQueryKeys.events.detail("missing"),
     queryFn: () => getEventDetail(eventId as string),
     enabled: isQueryEnabled,
@@ -42,18 +44,17 @@ export function useEventDetail(eventId?: string): UseEventDetailResult {
 
   const data = query.data ?? null;
   const mutation = useMutation({
+    networkMode: "always",
     mutationFn: async (nextJoinedState: boolean) => {
       if (!eventId) {
         throw new Error("Missing event id.");
       }
 
       if (nextJoinedState) {
-        await joinEvent(eventId);
-        return true;
+        return executeOrQueue(session?.user.id, "event.join", eventId, () => joinEvent(eventId));
       }
 
-      await leaveEvent(eventId);
-      return false;
+      return executeOrQueue(session?.user.id, "event.leave", eventId, () => leaveEvent(eventId));
     },
     onMutate: async (nextJoinedState) => {
       if (!eventId) {
@@ -93,8 +94,8 @@ export function useEventDetail(eventId?: string): UseEventDetailResult {
       logMutationLifecycle("event.attendance.toggle", "rollback", { eventId });
       restoreEventAttendanceCaches(queryClient, eventId, context);
     },
-    onSettled: async () => {
-      if (!eventId) {
+    onSettled: async (queued) => {
+      if (queued || !eventId) {
         return;
       }
 

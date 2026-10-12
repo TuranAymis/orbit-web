@@ -16,6 +16,7 @@ import {
   restoreGroupMembershipCaches,
   syncGroupMembershipCaches,
 } from "@/features/groups/model/membershipCache";
+import { executeOrQueue } from "@/shared/lib/mutations/offlineMutation";
 import { logMutationLifecycle } from "@/shared/lib/mutations/mutationLogger";
 import { orbitQueryKeys } from "@/shared/lib/query/query-keys";
 
@@ -40,6 +41,7 @@ export function useGroupDetail(groupId?: string): UseGroupDetailResult {
     isAuthenticated &&
     hasValidAccessToken(session);
   const query = useQuery({
+    networkMode: "always",
     queryKey: groupId ? orbitQueryKeys.groups.detail(groupId) : orbitQueryKeys.groups.detail("missing"),
     queryFn: () => getGroupDetail(groupId as string),
     enabled: isQueryEnabled,
@@ -50,18 +52,17 @@ export function useGroupDetail(groupId?: string): UseGroupDetailResult {
   );
   const data = applyJoinedGroupStateToGroupDetail(query.data ?? null, joinedState);
   const mutation = useMutation({
+    networkMode: "always",
     mutationFn: async (nextJoinedState: boolean) => {
       if (!groupId) {
         throw new Error("Missing group id.");
       }
 
       if (nextJoinedState) {
-        await joinGroup(groupId);
-        return true;
+        return executeOrQueue(session?.user.id, "group.join", groupId, () => joinGroup(groupId));
       }
 
-      await leaveGroup(groupId);
-      return false;
+      return executeOrQueue(session?.user.id, "group.leave", groupId, () => leaveGroup(groupId));
     },
     onMutate: async (nextJoinedState) => {
       if (!groupId) {
@@ -99,8 +100,8 @@ export function useGroupDetail(groupId?: string): UseGroupDetailResult {
         restoreGroupMembershipCaches(queryClient, groupId, context);
       }
     },
-    onSettled: async () => {
-      if (!groupId) {
+    onSettled: async (queued) => {
+      if (queued || !groupId) {
         return;
       }
 

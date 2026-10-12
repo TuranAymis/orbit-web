@@ -1,4 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/features/auth/useAuth";
+import { executeOrQueue } from "@/shared/lib/mutations/offlineMutation";
 import { joinGroup } from "@/features/groups/join-group/api/joinGroup";
 import {
   captureGroupMembershipSnapshot,
@@ -16,11 +18,13 @@ interface UseJoinGroupResult {
 
 export function useJoinGroup(): UseJoinGroupResult {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const mutation = useMutation({
+    networkMode: "always",
     mutationFn: async (groupId: string) => {
-      await joinGroup(groupId);
-      return groupId;
+      const queued = await executeOrQueue(user?.id, "group.join", groupId, () => joinGroup(groupId));
+      return { groupId, queued };
     },
     onMutate: async (groupId) => {
       logMutationLifecycle("group.join", "start", { groupId });
@@ -44,7 +48,8 @@ export function useJoinGroup(): UseJoinGroupResult {
 
       queryClient.invalidateQueries({ queryKey: orbitQueryKeys.groups.detail(groupId) });
     },
-    onSettled: async (_data, _error, groupId) => {
+    onSettled: async (result, _error, groupId) => {
+      if (result?.queued) return;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: orbitQueryKeys.groups.list }),
         queryClient.invalidateQueries({ queryKey: orbitQueryKeys.discover.feed }),

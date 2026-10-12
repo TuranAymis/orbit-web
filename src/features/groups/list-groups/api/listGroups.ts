@@ -2,6 +2,8 @@ import { appConfig } from "@/config/appConfig";
 import { mapGroupListResponse } from "@/entities/group/mappers";
 import type { Group } from "@/entities/group/model/types";
 import { httpClient } from "@/shared/lib/http/httpClient";
+import { getStoredUserId } from "@/features/auth/auth-storage";
+import { readThrough } from "@/shared/lib/offline/offlineCache";
 
 interface BackendGroupResponse {
   id: string;
@@ -37,6 +39,10 @@ function normalizeListResponse(payload: unknown): BackendGroupResponse[] {
 }
 
 export async function listGroups(): Promise<Group[]> {
+  return readThrough({ userId: getStoredUserId(), key: "groups:list", fetcher: fetchGroups });
+}
+
+async function fetchGroups(): Promise<Group[]> {
   const payload = await httpClient.get<unknown>("/groups");
   const groups = normalizeListResponse(payload);
   const mappedGroups = mapGroupListResponse(groups);

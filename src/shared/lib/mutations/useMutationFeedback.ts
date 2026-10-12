@@ -5,7 +5,9 @@ export function useMutationFeedback(error: unknown) {
 
   useEffect(() => {
     if (error instanceof Error) {
-      setMessage(error.message);
+      setMessage(error instanceof TypeError && typeof navigator !== "undefined" && navigator.onLine === false
+        ? "You're offline. Reconnect and try again."
+        : error.message);
       return;
     }
 

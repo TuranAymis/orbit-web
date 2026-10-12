@@ -49,8 +49,12 @@ export function CreateGroupPage() {
         <CreateGroupForm
           isSubmitting={createGroupMutation.isPending}
           onSubmit={async (input) => {
-            const createdGroup = await createGroupMutation.mutateAsync(input);
-            navigate(`/groups/${createdGroup.id}`);
+            try {
+              const createdGroup = await createGroupMutation.mutateAsync(input);
+              navigate(`/groups/${createdGroup.id}`);
+            } catch {
+              // The mutation feedback above displays the error.
+            }
           }}
         />
       </div>

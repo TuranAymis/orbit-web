@@ -2,6 +2,8 @@ import { appConfig } from "@/config/appConfig";
 import { mapEventListResponse } from "@/entities/event/mappers";
 import type { EventListItem } from "@/entities/event/model/types";
 import { httpClient } from "@/shared/lib/http/httpClient";
+import { getStoredUserId } from "@/features/auth/auth-storage";
+import { readThrough } from "@/shared/lib/offline/offlineCache";
 
 function normalizeListResponse(payload: unknown): Parameters<typeof mapEventListResponse>[0] {
   if (Array.isArray(payload)) {
@@ -24,6 +26,10 @@ function normalizeListResponse(payload: unknown): Parameters<typeof mapEventList
 }
 
 export async function listEvents(): Promise<EventListItem[]> {
+  return readThrough({ userId: getStoredUserId(), key: "events:list", fetcher: fetchEvents });
+}
+
+async function fetchEvents(): Promise<EventListItem[]> {
   const payload = await httpClient.get<unknown>("/events");
   const events = normalizeListResponse(payload);
   const mappedEvents = mapEventListResponse(events);
