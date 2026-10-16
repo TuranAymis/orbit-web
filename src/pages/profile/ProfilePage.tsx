@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useProfile } from "@/features/profile/get-profile/model/useProfile";
+import { BadgeList } from "@/features/profile/badges/ui/BadgeList";
 import { useUpdateProfile } from "@/features/profile/update-profile/model/useUpdateProfile";
 import { useMutationFeedback } from "@/shared/lib/mutations/useMutationFeedback";
 import { AsyncState } from "@/shared/ui/AsyncState";
@@ -120,6 +121,7 @@ export function ProfilePage() {
 
               <div className="grid gap-6 xl:grid-cols-[310px_minmax(0,1fr)]">
                 <div className="space-y-6">
+                  <BadgeList />
                   <StatCard label="Core Metrics" value="88%" hint="Cognitive Load" />
                   <Card className="border-white/8 bg-[#15151b]">
                     <CardContent className="space-y-4 p-6">
