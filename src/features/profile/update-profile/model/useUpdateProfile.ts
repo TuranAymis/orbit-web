@@ -32,6 +32,7 @@ export function useUpdateProfile() {
     },
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: orbitQueryKeys.profile.current });
+      await queryClient.invalidateQueries({ queryKey: orbitQueryKeys.profile.badges });
     },
   });
 }

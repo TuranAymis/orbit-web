@@ -34,6 +34,7 @@ export const orbitQueryKeys = {
   },
   profile: {
     current: ["profile", "current"] as const,
+    badges: ["profile", "badges"] as const,
   },
   settings: {
     current: ["settings", "current"] as const,

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers/AppProviders";
 import * as getProfileApi from "@/features/profile/get-profile/api/getProfile";
 import * as updateProfileApi from "@/features/profile/update-profile/api/updateProfile";
+import * as badgesApi from "@/features/profile/badges/api/getBadges";
 import { ProfilePage } from "@/pages/profile/ProfilePage";
 
 function renderProfilePage() {
@@ -20,6 +21,7 @@ function renderProfilePage() {
 describe("ProfilePage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(badgesApi, "getBadges").mockResolvedValue([]);
   });
 
   it("renders mapped backend profile data", async () => {
