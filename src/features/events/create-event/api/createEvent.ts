@@ -1,4 +1,5 @@
 import { HttpError, httpClient } from "@/shared/lib/http/httpClient";
+import { mapCreatedEventResponse } from "@/entities/event/mappers";
 
 export interface CreateEventInput {
   groupId: string;
@@ -58,11 +59,7 @@ export async function createEvent(input: CreateEventInput): Promise<CreatedEvent
       end_time: input.endsAt,
     });
 
-    return {
-      id: payload.id,
-      groupId: payload.group_id,
-      title: payload.title,
-    };
+    return mapCreatedEventResponse(payload);
   } catch (error) {
     if (error instanceof HttpError && error.status === 403) {
       throw new Error("You don't have permission to create events in this group");

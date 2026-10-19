@@ -55,7 +55,15 @@ describe("notification mappers", () => {
   });
 
   it("maps unread count payloads safely", () => {
+    expect(mapUnreadCountResponse({ count: 7 })).toBe(7);
     expect(mapUnreadCountResponse({ unreadCount: 4 })).toBe(4);
     expect(mapUnreadCountResponse(2)).toBe(2);
+  });
+
+  it("accepts array and wrapped notification lists", () => {
+    const item = { id: "n2", type: "chat", created_at: "2026-10-01T10:00:00Z", is_read: false };
+    expect(mapNotificationsResponse([item])[0]?.id).toBe("n2");
+    expect(mapNotificationsResponse({ items: [item] })[0]?.id).toBe("n2");
+    expect(mapNotificationsResponse({ notifications: [item] })[0]?.id).toBe("n2");
   });
 });

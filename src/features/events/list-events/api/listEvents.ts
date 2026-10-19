@@ -5,34 +5,13 @@ import { httpClient } from "@/shared/lib/http/httpClient";
 import { getStoredUserId } from "@/features/auth/auth-storage";
 import { readThrough } from "@/shared/lib/offline/offlineCache";
 
-function normalizeListResponse(payload: unknown): Parameters<typeof mapEventListResponse>[0] {
-  if (Array.isArray(payload)) {
-    return payload as Parameters<typeof mapEventListResponse>[0];
-  }
-
-  if (!payload || typeof payload !== "object") {
-    return [];
-  }
-
-  for (const key of ["items", "data", "events"]) {
-    const candidate = (payload as Record<string, unknown>)[key];
-
-    if (Array.isArray(candidate)) {
-      return candidate as Parameters<typeof mapEventListResponse>[0];
-    }
-  }
-
-  return [];
-}
-
 export async function listEvents(): Promise<EventListItem[]> {
   return readThrough({ userId: getStoredUserId(), key: "events:list", fetcher: fetchEvents });
 }
 
 async function fetchEvents(): Promise<EventListItem[]> {
   const payload = await httpClient.get<unknown>("/events");
-  const events = normalizeListResponse(payload);
-  const mappedEvents = mapEventListResponse(events);
+  const mappedEvents = mapEventListResponse(payload);
 
   if (appConfig.isDevelopment) {
     console.log("RAW EVENTS:", payload);

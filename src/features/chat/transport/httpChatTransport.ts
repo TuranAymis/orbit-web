@@ -1,4 +1,5 @@
 import type { Message } from "@/entities/message/model/types";
+import { mapChatMessage, type BackendChatMessage } from "@/entities/message/mappers";
 import type {
   ChatConnectionStatus,
   ChatSendResult,
@@ -7,36 +8,6 @@ import type {
   TransportOutgoingMessage,
 } from "@/features/chat/transport/chatTransport";
 import { httpClient } from "@/shared/lib/http/httpClient";
-
-interface BackendChatResponse {
-  id: string;
-  user_id: string;
-  username?: string | null;
-  group_id?: string | null;
-  event_id?: string | null;
-  content: string;
-  created_at: string;
-}
-
-function mapChatResponse(
-  payload: BackendChatResponse,
-  fallback: TransportOutgoingMessage,
-): Message {
-  return {
-    id: payload.id,
-    clientMessageId: fallback.clientMessageId,
-    serverMessageId: payload.id,
-    channelId: payload.group_id ?? payload.event_id ?? fallback.channelId,
-    userId: payload.user_id,
-    username: payload.username ?? fallback.username,
-    avatarFallback: fallback.avatarFallback,
-    content: payload.content,
-    createdAt: payload.created_at,
-    type: "text",
-    status: "sent",
-    canRetry: false,
-  };
-}
 
 export function createHttpChatTransport(): ChatTransport {
   const messageListeners = new Set<(message: Message) => void>();
@@ -57,12 +28,17 @@ export function createHttpChatTransport(): ChatTransport {
     joinRoom() {},
     leaveRoom() {},
     async sendMessage(message: TransportOutgoingMessage): Promise<ChatSendResult> {
-      const payload = await httpClient.post<BackendChatResponse>("/chats", {
+      const payload = await httpClient.post<BackendChatMessage>("/chats", {
         group_id: message.channelId,
         content: message.content,
       });
 
-      const resolvedMessage = mapChatResponse(payload, message);
+      const resolvedMessage = mapChatMessage(payload, {
+        channelId: message.channelId,
+        clientMessageId: message.clientMessageId,
+        fallbackUsername: message.username,
+        fallbackAvatar: message.avatarFallback,
+      });
       messageListeners.forEach((listener) => listener(resolvedMessage));
 
       return {

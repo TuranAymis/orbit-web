@@ -1,16 +1,10 @@
 import type { Message } from "@/entities/message/model/types";
+import { mapChatMessage, type BackendChatMessage } from "@/entities/message/mappers";
+import { mapCollection } from "@/shared/lib/http/collectionMapper";
 import type { ChatConnectionStatus, ChatTransport, ChatTypingEvent, TransportOutgoingMessage } from "@/features/chat/transport/chatTransport";
 import { httpClient } from "@/shared/lib/http/httpClient";
 
-interface ServerMessage {
-  id: string;
-  group_id?: string | null;
-  event_id?: string | null;
-  user_id: string;
-  username?: string | null;
-  content: string;
-  created_at: string;
-}
+type ServerMessage = BackendChatMessage;
 interface ServerEvent {
   event: string;
   request_id?: string;
@@ -38,24 +32,18 @@ export function createWebSocketChatTransport(apiUrl: string, token?: string): Ch
       socket.send(JSON.stringify({ event, data, request_id: requestId }));
     }
   };
-  const mapMessage = (raw: ServerMessage, clientMessageId?: string): Message => ({
-    id: raw.id, serverMessageId: raw.id, clientMessageId: clientMessageId ?? raw.id,
-    channelId: raw.event_id ?? raw.group_id ?? "", userId: raw.user_id,
-    username: raw.username ?? "Orbit Member", avatarFallback: (raw.username ?? "OM").slice(0, 2).toUpperCase(),
-    content: raw.content, createdAt: raw.created_at, type: "text", status: "sent", canRetry: false,
-  });
   const deliver = (raw: ServerMessage) => {
     if (seen.has(raw.id)) return;
     seen.add(raw.id);
-    const message = mapMessage(raw);
+    const message = mapChatMessage(raw);
     lastSeen.set(message.channelId, message.id);
     messageListeners.forEach((listener) => listener(message));
   };
   const syncRoom = async (room: string) => {
     const cursor = lastSeen.get(room);
     try {
-      const rows = await httpClient.get<ServerMessage[]>(`/chats?group_id=${encodeURIComponent(room)}${cursor ? `&after_id=${encodeURIComponent(cursor)}` : ""}`);
-      rows.forEach(deliver);
+      const payload = await httpClient.get<unknown>(`/chats?group_id=${encodeURIComponent(room)}${cursor ? `&after_id=${encodeURIComponent(cursor)}` : ""}`);
+      mapCollection<ServerMessage>(payload, ["messages", "data"]).forEach(deliver);
     } catch {
       status("reconnecting");
     }
@@ -90,7 +78,7 @@ export function createWebSocketChatTransport(apiUrl: string, token?: string): Ch
         if (!waiter) return;
         pending.delete(payload.request_id);
         const data = payload.data as { success?: boolean; message?: ServerMessage; error?: string };
-        if (data.success && data.message) waiter.resolve(mapMessage(data.message, payload.request_id));
+        if (data.success && data.message) waiter.resolve(mapChatMessage(data.message, { clientMessageId: payload.request_id }));
         else waiter.reject(new Error(data.error ?? "Mesaj gönderilemedi"));
       }
     };

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Channel, Member, Message } from "@/entities/message/model/types";
+import { mapChatMessages } from "@/entities/message/mappers";
 import { appConfig } from "@/config/appConfig";
 import { useAuth } from "@/features/auth/useAuth";
 import type {
@@ -122,16 +123,6 @@ const mockMessages: Message[] = [
   },
 ];
 
-interface BackendChatResponse {
-  id: string;
-  user_id: string;
-  username?: string | null;
-  group_id?: string | null;
-  event_id?: string | null;
-  content: string;
-  created_at: string;
-}
-
 interface UseChatResult {
   channels: Channel[];
   activeChannelId: string;
@@ -211,39 +202,6 @@ function syncChatUnreadCount(queryClient: ReturnType<typeof useQueryClient>, con
     orbitQueryKeys.chat.unreadCount,
     conversations.reduce((total, channel) => total + (channel.unreadCount ?? 0), 0),
   );
-}
-
-function mapBackendMessages(
-  payload: BackendChatResponse[],
-  channelId: string,
-  currentUser?: {
-    id: string;
-    name: string;
-    avatarFallback: string;
-  } | null,
-): Message[] {
-  return payload
-    .map<Message>((message) => ({
-      id: message.id,
-      clientMessageId: message.id,
-      serverMessageId: message.id,
-      channelId: message.event_id ?? message.group_id ?? channelId,
-      userId: message.user_id,
-      username:
-        message.user_id === currentUser?.id
-          ? currentUser.name
-          : (message.username ?? "Orbit Member"),
-      avatarFallback:
-        message.user_id === currentUser?.id
-          ? currentUser.avatarFallback
-          : (message.username ?? "Orbit Member").slice(0, 2).toUpperCase(),
-      content: message.content,
-      createdAt: message.created_at,
-      type: "text",
-      status: "sent",
-      canRetry: false,
-    }))
-    .map((message) => withMentionStateForIdentity(message, currentUser));
 }
 
 function createDefaultChatTransport(accessToken?: string) {
@@ -384,11 +342,12 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
         return mockMessages.filter((message) => message.channelId === activeChannelId);
       }
 
-      const payload = await httpClient.get<BackendChatResponse[]>(
+      const payload = await httpClient.get<unknown>(
         `/chats?group_id=${encodeURIComponent(activeChannelId)}`,
       );
 
-      return mapBackendMessages(payload, activeChannelId, user);
+      return mapChatMessages(payload, { channelId: activeChannelId, currentUser: user })
+        .map((message) => withMentionStateForIdentity(message, user));
     },
     initialData:
       usesSeedData && activeChannelId

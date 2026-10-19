@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { httpClient } from "@/shared/lib/http/httpClient";
+import { mapPushConfigResponse } from "@/entities/notification/mappers";
 import { Button } from "@/shared/ui/button";
 
 type Category = "chat" | "event" | "group";
@@ -22,10 +23,10 @@ export function PushSettings() {
       const result = await Notification.requestPermission();
       setPermission(result);
       if (result !== "granted") return;
-      const { public_key } = await httpClient.get<{ public_key: string | null }>("/notifications/push/config");
-      if (!public_key) { setMessage("Bildirim hizmeti yapılandırılmamış."); return; }
+      const publicKey = mapPushConfigResponse(await httpClient.get<{ public_key: string | null }>("/notifications/push/config"));
+      if (!publicKey) { setMessage("Bildirim hizmeti yapılandırılmamış."); return; }
       const registration = await navigator.serviceWorker.register("/sw.js");
-      const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: decodeKey(public_key) });
+      const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: decodeKey(publicKey) });
       await httpClient.post("/notifications/push/subscriptions", subscription.toJSON());
       setMessage("Bildirimler açıldı.");
     } catch { setMessage("Bildirimler açılamadı."); }

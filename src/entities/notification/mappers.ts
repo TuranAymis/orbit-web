@@ -4,6 +4,7 @@ import type {
   NotificationRelatedEntityType,
   NotificationType,
 } from "@/entities/notification/model/types";
+import { mapCollection } from "@/shared/lib/http/collectionMapper";
 
 interface NotificationResponseActor {
   id?: string;
@@ -80,14 +81,10 @@ function mapNotification(response: NotificationResponse, index: number): Notific
 }
 
 export function mapNotificationsResponse(payload: unknown): Notification[] {
-  const collection = Array.isArray(payload)
-    ? payload
-    : Array.isArray((payload as { notifications?: unknown[] } | null)?.notifications)
-      ? ((payload as { notifications: unknown[] }).notifications)
-      : [];
+  const collection = mapCollection<NotificationResponse>(payload, ["notifications"]);
 
   return collection.map((item, index) =>
-    mapNotification(item as NotificationResponse, index),
+    mapNotification(item, index),
   );
 }
 
@@ -97,7 +94,8 @@ export function mapUnreadCountResponse(payload: unknown): number {
   }
 
   if (payload && typeof payload === "object") {
-    const count = (payload as { unreadCount?: unknown }).unreadCount;
+    const response = payload as { count?: unknown; unreadCount?: unknown };
+    const count = response.count ?? response.unreadCount;
 
     if (typeof count === "number") {
       return count;
@@ -105,4 +103,8 @@ export function mapUnreadCountResponse(payload: unknown): number {
   }
 
   return 0;
+}
+
+export function mapPushConfigResponse(payload: { public_key?: string | null; publicKey?: string | null }): string | null {
+  return payload.public_key ?? payload.publicKey ?? null;
 }
