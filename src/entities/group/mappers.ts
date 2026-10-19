@@ -6,6 +6,25 @@ import type {
   GroupMemberPreview,
   GroupStatSummary,
 } from "@/entities/group/model/types";
+import { mapCollection } from "@/shared/lib/http/collectionMapper";
+interface CreatedGroup {
+  id: string; ownerId: string; name: string; description: string | null;
+  coverImageUrl: string | null; category: string | null; location: string | null;
+  createdAt: string; updatedAt: string;
+}
+
+export function mapCreatedGroupResponse(payload: {
+  id: string; owner_id: string; name: string; description?: string | null;
+  cover_image_url?: string | null; category?: string | null; location?: string | null;
+  created_at: string; updated_at: string;
+}): CreatedGroup {
+  return {
+    id: payload.id, ownerId: payload.owner_id, name: payload.name,
+    description: payload.description ?? null, coverImageUrl: payload.cover_image_url ?? null,
+    category: payload.category ?? null, location: payload.location ?? null,
+    createdAt: payload.created_at, updatedAt: payload.updated_at,
+  };
+}
 
 interface GroupListResponseItem {
   id: string;
@@ -58,8 +77,8 @@ interface GroupDetailResponse extends GroupListResponseItem {
 const fallbackGroupImage =
   "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80";
 
-export function mapGroupListResponse(response: GroupListResponseItem[]): Group[] {
-  return response.map((group, index) => ({
+export function mapGroupListResponse(response: unknown): Group[] {
+  return mapCollection<GroupListResponseItem>(response, ["data", "groups"]).map((group, index) => ({
     id: group.id ?? `group_${index}`,
     name: group.name ?? "Orbit Group",
     description: group.description ?? "No group description available yet.",
@@ -93,10 +112,10 @@ export function mapGroupDetailResponse(
     name: response.name,
     description: response.description ?? "No description available yet.",
     coverImageUrl:
-      response.image_url ??
-      response.imageUrl ??
       response.cover_image_url ??
       response.coverImageUrl ??
+      response.image_url ??
+      response.imageUrl ??
       fallbackGroupImage,
     memberCount: response.memberCount ?? response.member_count ?? 0,
     isJoined: response.isJoined ?? response.is_joined ?? response.joined ?? false,

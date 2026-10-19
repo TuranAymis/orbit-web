@@ -5,6 +5,10 @@ import {
 } from "@/entities/event/mappers";
 
 describe("event mappers", () => {
+  it("accepts wrapped lists with the backend cover field", () => {
+    const rows = mapEventListResponse({ items: [{ id: "e", title: "Event", cover_image_url: "cover.jpg", starts_at: "2026-10-20T10:00:00Z", ends_at: "2026-10-20T11:00:00Z" }] });
+    expect(rows[0]?.coverImageUrl).toBe("cover.jpg");
+  });
   it("maps list payloads into event cards", () => {
     const result = mapEventListResponse([
       {

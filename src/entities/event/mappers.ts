@@ -4,6 +4,13 @@ import type {
   EventParticipantPreview,
   EventRelatedGroup,
 } from "@/entities/event/model/types";
+import { mapCollection } from "@/shared/lib/http/collectionMapper";
+
+export function mapCreatedEventResponse(payload: { id: string; group_id: string; title: string }): {
+  id: string; groupId: string; title: string;
+} {
+  return { id: payload.id, groupId: payload.group_id, title: payload.title };
+}
 
 interface EventListResponseItem {
   id: string;
@@ -60,10 +67,10 @@ function mapEventBase(response: EventListResponseItem): EventListItem {
     title: response.title,
     description: response.description ?? "No event description available yet.",
     coverImageUrl:
-      response.image_url ??
-      response.imageUrl ??
       response.cover_image_url ??
       response.coverImageUrl ??
+      response.image_url ??
+      response.imageUrl ??
       "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
     startsAt:
       response.starts_at ??
@@ -83,9 +90,9 @@ function mapEventBase(response: EventListResponseItem): EventListItem {
 }
 
 export function mapEventListResponse(
-  response: EventListResponseItem[],
+  response: unknown,
 ): EventListItem[] {
-  return response.map(mapEventBase);
+  return mapCollection<EventListResponseItem>(response, ["data", "events"]).map(mapEventBase);
 }
 
 export function mapEventDetailResponse(

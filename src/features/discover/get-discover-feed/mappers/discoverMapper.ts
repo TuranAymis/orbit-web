@@ -2,6 +2,7 @@ import { mapGroupListResponse } from "@/entities/group/mappers";
 import { mapEventListResponse } from "@/entities/event/mappers";
 import type { EventListItem } from "@/entities/event/model/types";
 import type { Group } from "@/entities/group/model/types";
+import { mapCollection } from "@/shared/lib/http/collectionMapper";
 
 interface DiscoverTrendItemResponse {
   id?: string;
@@ -34,23 +35,7 @@ interface DiscoverFeedResponse {
 }
 
 function getCollection(payload: unknown, keys: string[]): unknown[] {
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-
-  if (!payload || typeof payload !== "object") {
-    return [];
-  }
-
-  for (const key of keys) {
-    const candidate = (payload as Record<string, unknown>)[key];
-
-    if (Array.isArray(candidate)) {
-      return candidate;
-    }
-  }
-
-  return [];
+  return mapCollection(payload, keys);
 }
 
 function deriveTrending(groups: Group[], events: EventListItem[]): DiscoverTrendItem[] {

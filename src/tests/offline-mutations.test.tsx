@@ -38,7 +38,7 @@ describe("offline membership mutations", () => {
     const { result } = renderHook(() => useGroupDetail(group.id), { wrapper });
     await waitFor(() => expect(result.current.data).not.toBeNull());
     await act(async () => { await result.current.toggleMembership(); });
-    expect(result.current.data?.isJoined).toBe(true);
+    await waitFor(() => expect(result.current.data?.isJoined).toBe(true));
     expect(result.current.membershipError).toBeNull();
     expect((await outbox.list(session.user.id))[0]).toMatchObject({ kind: "group.join", targetId: group.id });
   });

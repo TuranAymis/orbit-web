@@ -46,9 +46,5 @@ async function fetchGroupDetail(groupId: string): Promise<GroupDetail> {
     `/groups/${encodeURIComponent(groupId)}`,
   );
 
-  return mapGroupDetailResponse({
-    ...payload,
-    category: payload.category ?? undefined,
-    location: payload.location ?? undefined,
-  });
+  return mapGroupDetailResponse(payload as Parameters<typeof mapGroupDetailResponse>[0]);
 }

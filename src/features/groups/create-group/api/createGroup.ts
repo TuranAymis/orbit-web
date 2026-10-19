@@ -1,4 +1,5 @@
 import { HttpError, httpClient } from "@/shared/lib/http/httpClient";
+import { mapCreatedGroupResponse } from "@/entities/group/mappers";
 
 export interface CreateGroupInput {
   name: string;
@@ -42,17 +43,7 @@ export async function createGroup(input: CreateGroupInput): Promise<CreatedGroup
       location: input.location ?? null,
     });
 
-    return {
-      id: payload.id,
-      ownerId: payload.owner_id,
-      name: payload.name,
-      description: payload.description ?? null,
-      coverImageUrl: payload.cover_image_url ?? null,
-      category: payload.category ?? null,
-      location: payload.location ?? null,
-      createdAt: payload.created_at,
-      updatedAt: payload.updated_at,
-    };
+    return mapCreatedGroupResponse(payload);
   } catch (error) {
     if (error instanceof HttpError && error.status === 403) {
       throw new Error("Only admins can create groups");

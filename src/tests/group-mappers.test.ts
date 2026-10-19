@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { mapGroupDetailResponse, mapGroupListResponse } from "@/entities/group/mappers";
 
 describe("group mappers", () => {
+  it("accepts the backend list image field and the detail cover field", () => {
+    expect(mapGroupListResponse({ items: [{ id: "g", name: "Group", image_url: "list.jpg" }] })[0]?.imageUrl).toBe("list.jpg");
+    expect(mapGroupDetailResponse({ id: "g", name: "Group", cover_image_url: "detail.jpg" }).coverImageUrl).toBe("detail.jpg");
+  });
   it("maps backend list payloads into the group list domain shape", () => {
     const result = mapGroupListResponse([
       {
